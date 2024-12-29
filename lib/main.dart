@@ -1,128 +1,195 @@
 import 'package:flutter/material.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const FridgeMateApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class FridgeMateApp extends StatelessWidget {
+  const FridgeMateApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
+      debugShowCheckedModeBanner: false,
+      title: 'FridgeMate',
+      theme: _buildThemeData(),
+      home: const LoginScreen(),
+    );
+  }
+
+  // Extract common theme styling into a method for easier maintenance.
+  ThemeData _buildThemeData() {
+    return ThemeData(
+      primarySwatch: Colors.green,
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green,
+          padding: const EdgeInsets.symmetric(vertical: 15),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(50),
+          ),
+        ),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      inputDecorationTheme: const InputDecorationTheme(
+        border: OutlineInputBorder(),
+      ),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+class LoginScreen extends StatelessWidget {
+  const LoginScreen({super.key});
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
+  // Separate out the actions for easier testing and readability.
+  void _onHelpPressed() {
+    // Handle help action here
+  }
 
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
+  void _onForgotCredentialsPressed() {
+    // Handle 'forgot username/password' action here
+  }
 
-  final String title;
+  void _onLoginPressed() {
+    // Handle login action here
+  }
 
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  void _onRegisterPressed() {
+    // Handle register action here
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: const Text(
+          'FridgeMate',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+        ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: _onHelpPressed,
+            icon: const Icon(Icons.help_outline),
+          ),
+        ],
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 30.0),
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
+          // Centers all items vertically in the middle of the screen.
           mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Center(
+              child: Text(
+                'Never waste a bite!',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800, // Extra bold
+                  fontStyle: FontStyle.italic, // Italic
+                  color: Colors.grey, // Gray interior
+                  shadows: [
+                    // Green outline effect using multiple shadows
+                    Shadow(
+                      offset: Offset(-1, -1),
+                      blurRadius: 0,
+                      color: Colors.green,
+                    ),
+                    Shadow(
+                      offset: Offset(1, -1),
+                      blurRadius: 0,
+                      color: Colors.green,
+                    ),
+                    Shadow(
+                      offset: Offset(1, 1),
+                      blurRadius: 0,
+                      color: Colors.green,
+                    ),
+                    Shadow(
+                      offset: Offset(-1, 1),
+                      blurRadius: 0,
+                      color: Colors.green,
+                    ),
+                  ],
+                ),
+              ),
             ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+            const SizedBox(height: 40),
+            const TextField(
+              decoration: InputDecoration(
+                labelText: 'Username',
+              ),
+            ),
+            const SizedBox(height: 20),
+            const TextField(
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: 'Password',
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text('Forgot username/password?',
+                    style: TextStyle(fontSize: 13)),
+                TextButton(
+                  onPressed: _onForgotCredentialsPressed,
+                  child: const Text(
+                    'Click here',
+                    style: TextStyle(fontSize: 14, color: Colors.purple),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 80, vertical: 18),
+              ),
+              onPressed: _onLoginPressed,
+              child: const Text(
+                'Login',
+                style: TextStyle(fontSize: 16, color: Colors.white),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text("Don't have an account?",
+                      style: TextStyle(fontSize: 12)),
+                  const SizedBox(height: 10, width: 10),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                    ),
+                    onPressed: _onRegisterPressed,
+                    child: const Text(
+                      'Register!',
+                      style: TextStyle(fontSize: 13, color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
+  
 
-
-//
+//  The code above is a simple Flutter app that displays a login screen. The app has a title, a help icon, and a form with a username and password field. The form also has a 'forgot username/password' link, a login button, and a 'register' button. 
+//  The app is structured in a way that makes it easy to test. The  LoginScreen  widget is separated from the actions that handle the button presses. This separation makes it easier to test the actions without having to interact with the UI. 
+//  The  FridgeMateApp  widget is also separated from the  LoginScreen  widget. This separation makes it easier to test the app's theme styling without having to interact with the UI. 
+//  The  _buildThemeData  method in the  FridgeMateApp  widget extracts common theme styling into a method for easier maintenance. This method returns a  ThemeData  object that defines the app's theme. 
+//  The  _onHelpPressed ,  _onForgotCredentialsPressed ,  _onLoginPressed , and  _onRegisterPressed  methods in the  LoginScreen  widget handle the button presses. These methods are separated from the UI code to make it easier to test the actions without having to interact with the UI. 
+//  The  LoginScreen  widget is a stateless widget that displays the login screen. It has a title, a help icon, a form with a username and password field, a 'forgot username/password' link, a login button, and a 'register' button. 
+//  The  LoginScreen  widget is structured in a way that makes it easy to test. The actions that handle the button presses are separated from the UI code, making it easier to test the actions without having to interact with the UI. 
+//  The  FridgeMateApp  widget is a stateless widget that displays the app. It has a title, a theme, and a  LoginScreen  widget as its home screen. 
+//  The  FridgeMateApp  widget is structured in a way that makes it easy to test. The theme styling is separated from the  LoginScreen  widget, making it easier to test the app's theme without having to interact with the UI. 
+//  The code above is a simple Flutter app that displays a login screen. The app has a title, a help icon, and a form with a username and password field. The form also has a 'forgot username/password' link, a login button
