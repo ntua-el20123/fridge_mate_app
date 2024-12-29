@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fridge_mate_app/pages/register_page.dart';
 
 void main() {
   runApp(const FridgeMateApp());
@@ -40,11 +41,6 @@ class FridgeMateApp extends StatelessWidget {
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
 
-  // Separate out the actions for easier testing and readability.
-  void _onHelpPressed() {
-    // Handle help action here
-  }
-
   void _onForgotCredentialsPressed() {
     // Handle 'forgot username/password' action here
   }
@@ -53,8 +49,14 @@ class LoginScreen extends StatelessWidget {
     // Handle login action here
   }
 
-  void _onRegisterPressed() {
-    // Handle register action here
+  // Pass in BuildContext so we can push a new route.
+  void _onRegisterPressed(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const RegisterScreen(),
+      ),
+    );
   }
 
   @override
@@ -63,15 +65,10 @@ class LoginScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text(
           'FridgeMate',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+          style: TextStyle(
+              fontWeight: FontWeight.bold, fontSize: 20, color: Colors.white),
         ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            onPressed: _onHelpPressed,
-            icon: const Icon(Icons.help_outline),
-          ),
-        ],
+        backgroundColor: Colors.green,
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 30.0),
@@ -87,7 +84,7 @@ class LoginScreen extends StatelessWidget {
                   fontSize: 28,
                   fontWeight: FontWeight.w800, // Extra bold
                   fontStyle: FontStyle.italic, // Italic
-                  color: Colors.grey, // Gray interior
+                  color: Color.fromARGB(255, 183, 183, 183), // Gray interior
                   shadows: [
                     // Green outline effect using multiple shadows
                     Shadow(
@@ -154,7 +151,7 @@ class LoginScreen extends StatelessWidget {
                 style: TextStyle(fontSize: 16, color: Colors.white),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 100),
             Center(
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -166,7 +163,7 @@ class LoginScreen extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                     ),
-                    onPressed: _onRegisterPressed,
+                    onPressed: () => _onRegisterPressed(context),
                     child: const Text(
                       'Register!',
                       style: TextStyle(fontSize: 13, color: Colors.white),
