@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fridge_mate_app/pages/home_page.dart';
 import 'package:fridge_mate_app/pages/register_page.dart';
 
 void main() {
@@ -45,8 +46,13 @@ class LoginScreen extends StatelessWidget {
     // Handle 'forgot username/password' action here
   }
 
-  void _onLoginPressed() {
-    // Handle login action here
+  void _onLoginPressed(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const HomePage(),
+      ),
+    );
   }
 
   // Pass in BuildContext so we can push a new route.
@@ -145,7 +151,7 @@ class LoginScreen extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 80, vertical: 18),
               ),
-              onPressed: _onLoginPressed,
+              onPressed: () => _onLoginPressed(context),
               child: const Text(
                 'Login',
                 style: TextStyle(fontSize: 16, color: Colors.white),
