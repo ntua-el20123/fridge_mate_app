@@ -6,14 +6,49 @@ class User {
   final int? id;
   final String username;
   final String password;
+  final String email;
+  final String dateOfBirth;
 
-  User({this.id, required this.username, required this.password});
+  User(
+      {this.id,
+      required this.username,
+      required this.password,
+      required this.email,
+      required this.dateOfBirth});
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'username': username,
       'password': password,
+      'email': email,
+      'dateOfBirth': dateOfBirth,
+    };
+  }
+}
+
+class Item {
+  final int? id;
+  final int userId;
+  final String itemName;
+  final String? expiryDate;
+  final String? category;
+
+  Item({
+    this.id,
+    required this.userId,
+    required this.itemName,
+    this.expiryDate,
+    this.category,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'userId': userId,
+      'itemName': itemName,
+      'expiryDate': expiryDate,
+      'category': category,
     };
   }
 }
@@ -47,7 +82,9 @@ class Db {
       CREATE TABLE users(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT NOT NULL,
-        password TEXT NOT NULL
+        password TEXT NOT NULL,
+        email TEXT NOT NULL,
+        dateOfBirth TEXT NOT NULL
       )
     ''');
 
@@ -77,6 +114,8 @@ class Db {
         id: maps[i]['id'],
         username: maps[i]['username'],
         password: maps[i]['password'],
+        email: maps[i]['email'],
+        dateOfBirth: maps[i]['dateOfBirth'],
       );
     });
   }
@@ -95,6 +134,8 @@ class Db {
         id: results.first['id'],
         username: results.first['username'],
         password: results.first['password'],
+        email: results.first['email'],
+        dateOfBirth: results.first['dateOfBirth'],
       );
     }
     return null;
