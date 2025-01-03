@@ -1,6 +1,6 @@
-## FridgeMate
+# FridgeMate
 
-# Smart cooking starts with smart inventory. Never waste a bite!
+## Smart cooking starts with smart inventory. Never waste a bite!
 
 With FridgeMate, you scan barcodes to easily log & track what’s in your fridge and get
 tailored recipes based on your tastes. Stay on top of your inventory with notifications
