@@ -1,33 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:fridge_mate_app/db.dart';
 import 'package:fridge_mate_app/pages/modify_item_page.dart';
 
+/// A button that shows a popup menu to select a sorting option.
 class SortButton extends StatelessWidget {
-  const SortButton({super.key});
+  final Function(String) onSortOptionSelected;
 
-  // Handle the selected sort option here
-  void _onSortOptionSelected(String option) {
-    switch (option) {
-      case 'alphabetical':
-        // Handle alphabetical sort
-        break;
-      case 'expiration':
-        // Handle expiration date sort
-        break;
-      case 'recently_added':
-        // Handle recently added sort
-        break;
-      case 'category':
-        // Handle category sort
-        break;
-      default:
-        break;
-    }
+  /// Pass in a callback to handle the user’s choice.
+  const SortButton({
+    super.key,
+    required this.onSortOptionSelected,
+  });
+
+  void _handleSelection(String option) {
+    onSortOptionSelected(option);
   }
 
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
-      onSelected: _onSortOptionSelected,
+      onSelected: _handleSelection,
       itemBuilder: (BuildContext context) => [
         const PopupMenuItem(
           value: 'alphabetical',
@@ -57,9 +49,10 @@ class SortButton extends StatelessWidget {
           children: [
             Text(
               'Sort',
-              style: TextStyle(
-                  color: Colors.white, fontSize: 16), // Text color and size
+              style: TextStyle(color: Colors.white, fontSize: 16),
             ),
+            SizedBox(width: 4),
+            Icon(Icons.arrow_drop_down, color: Colors.white),
           ],
         ),
       ),
@@ -67,38 +60,119 @@ class SortButton extends StatelessWidget {
   }
 }
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+/// The home page displays the user’s items and an “Expiring Soon” section.
+class HomePage extends StatefulWidget {
+  final int userId;
 
-  // Example method for handling item clicks. In a real app, this might be more complex.
-  void _onItemClicked(BuildContext context, int index) {
-    // Navigate to the ModifyItemPage to edit the item
-    Navigator.push(
+  const HomePage({super.key, required this.userId});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  final db = Db.instance;
+
+  /// Stores all the items owned by the user.
+  List<Item> _items = [];
+
+  /// Items that are about to expire soon (you define the criteria).
+  Item? _expiringSoon;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserItems();
+  }
+
+  /// Fetch the user’s items from the database and update the UI.
+  Future<void> _loadUserItems() async {
+    final userItems = await db.getUserItems(widget.userId);
+
+    setState(() {
+      _items = userItems;
+      _expiringSoon = _filterExpiringSoon(userItems);
+    });
+  }
+
+  Item? _filterExpiringSoon(List<Item> allItems) {
+    if (allItems.isEmpty) return null;
+    allItems.sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
+    return allItems.first;
+  }
+
+  /// Callback from SortButton to sort the list of items in various ways.
+  void _onSortOptionSelected(String option) {
+    setState(() {
+      switch (option) {
+        case 'alphabetical':
+          _items.sort((a, b) => a.itemName.compareTo(b.itemName));
+          break;
+        case 'expiration':
+          // For real comparison, parse expiryDate as DateTime.
+          // Here we do a simple string comparison:
+          _items.sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
+          break;
+        case 'recently_added':
+          // If you assume higher ID means more recent,
+          // sort descending by ID:
+          _items.sort((a, b) => b.id!.compareTo(a.id!));
+          break;
+        case 'category':
+          _items.sort((a, b) => a.category.compareTo(b.category));
+          break;
+      }
+      // Re-filter expiring soon as well
+      _expiringSoon = _filterExpiringSoon(_items);
+    });
+  }
+
+  /// Navigate to modify item page to add a new item.
+  void _onAddItem() async {
+    // Example: Navigate to a page that returns true/false if a new item was added
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => const ModifyItemPage(),
+        builder: (_) => ModifyItemPage(userId: widget.userId),
       ),
     );
+
+    if (result == true) {
+      // Reload items after successful addition
+      _loadUserItems();
+    }
   }
 
-  // Example method for deleting an item. In a real app, this might be more complex.
-  void _onDeleteItem() {
-    // Handle delete logic
-  }
-
-  // Example method for adding a new item.
-  void _onAddItem(BuildContext context) {
-    // Navigate to the ModifyItemPage to add a new item
-    Navigator.push(
+  /// Navigate to modify item page to edit the existing item.
+  void _onItemClicked(Item item) async {
+    // Navigate with the item info
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => const ModifyItemPage(),
+        builder: (_) => ModifyItemPage(userId: widget.userId, item: item),
       ),
     );
+
+    if (result == true) {
+      // Reload items after successful modification
+      _loadUserItems();
+    }
   }
 
-  // Builds the "Expires Soon" section.
-  Widget _buildExpiringSoonSection(BuildContext context) {
+  /// Delete a specific item and reload the list.
+  Future<void> _onDeleteItem(int itemId) async {
+    await db.deleteItem(itemId);
+    _loadUserItems();
+  }
+
+  /// Builds a list of items that are “about to expire soon.”
+  Widget _buildExpiringSoonSection() {
+    if (_expiringSoon == null) {
+      return const SizedBox(); // No items expiring soon
+    }
+
+    final item = _expiringSoon!;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -110,34 +184,35 @@ class HomePage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        GestureDetector(
-          onTap: () => _onItemClicked(context, 0),
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.black),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            padding: const EdgeInsets.all(8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Placeholder for an image thumbnail
-                Container(
-                  width: 60,
-                  height: 60,
-                  color: Colors.grey[300],
-                ),
-                const SizedBox(width: 10),
-                // Details
-                const Expanded(
+        Container(
+          margin: const EdgeInsets.only(bottom: 8.0),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.black),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          padding: const EdgeInsets.all(8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Placeholder for an image thumbnail
+              Container(
+                width: 60,
+                height: 60,
+                color: Colors.grey[300],
+              ),
+              const SizedBox(width: 10),
+              // Details
+              Expanded(
+                child: InkWell(
+                  onTap: () => _onItemClicked(item),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Description'),
-                      SizedBox(height: 5),
+                      Text(item.itemName),
+                      const SizedBox(height: 5),
                       Text(
-                        'Ex. 21/11/24',
-                        style: TextStyle(
+                        'Ex. ${item.expiryDate}',
+                        style: const TextStyle(
                           fontSize: 12,
                           color: Colors.grey,
                         ),
@@ -145,20 +220,20 @@ class HomePage extends StatelessWidget {
                     ],
                   ),
                 ),
-                IconButton(
-                  onPressed: _onDeleteItem,
-                  icon: const Icon(Icons.delete, color: Colors.black),
-                ),
-              ],
-            ),
+              ),
+              IconButton(
+                onPressed: () => _onDeleteItem(item.id!),
+                icon: const Icon(Icons.delete, color: Colors.black),
+              ),
+            ],
           ),
         ),
       ],
     );
   }
 
-  // Builds the "Your Inventory" section with a list of items.
-  Widget _buildInventorySection(BuildContext context) {
+  /// Builds the “Your Inventory” section with the user’s items.
+  Widget _buildInventorySection() {
     return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,7 +251,7 @@ class HomePage extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               ElevatedButton(
-                onPressed: () => _onAddItem(context),
+                onPressed: _onAddItem,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                 ),
@@ -185,63 +260,70 @@ class HomePage extends StatelessWidget {
                   style: TextStyle(color: Colors.white),
                 ),
               ),
-              const SortButton(),
+              // Our SortButton with the callback
+              SortButton(onSortOptionSelected: _onSortOptionSelected),
             ],
           ),
           const SizedBox(height: 10),
           // Inventory List
           Expanded(
-            child: ListView.builder(
-              itemCount: 5, // example count
-              itemBuilder: (context, index) {
-                return GestureDetector(
-                  onTap: () => _onItemClicked(context, index),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 5.0),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.all(8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          // Placeholder for an image thumbnail
-                          Container(
-                            width: 60,
-                            height: 60,
-                            color: Colors.grey[300],
-                          ),
-                          const SizedBox(width: 10),
-                          // Details
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Description'),
-                                SizedBox(height: 5),
-                                Text(
-                                  'Ex. 19/11/24',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ],
+            child: _items.isEmpty
+                ? const Center(
+                    child: Text('No items yet.'),
+                  )
+                : ListView.builder(
+                    itemCount: _items.length,
+                    itemBuilder: (context, index) {
+                      final item = _items[index];
+                      return Container(
+                        margin: const EdgeInsets.symmetric(vertical: 5),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.all(8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            // Placeholder for an image thumbnail
+                            Container(
+                              width: 60,
+                              height: 60,
+                              color: Colors.grey[300],
                             ),
-                          ),
-                          IconButton(
-                            onPressed: _onDeleteItem,
-                            icon: const Icon(Icons.delete, color: Colors.black),
-                          ),
-                        ],
-                      ),
-                    ),
+                            const SizedBox(width: 10),
+                            // Details (tap to edit)
+                            Expanded(
+                              child: InkWell(
+                                onTap: () => _onItemClicked(item),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(item.itemName),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      'Ex. ${item.expiryDate}',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () => _onDeleteItem(item.id!),
+                              icon: const Icon(
+                                Icons.delete,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
         ],
       ),
@@ -252,7 +334,7 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        // Set this to remove the default back arrow
+        // Remove the default back arrow
         automaticallyImplyLeading: false,
         title: const Text(
           'FridgeMate',
@@ -267,9 +349,9 @@ class HomePage extends StatelessWidget {
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
-            _buildExpiringSoonSection(context),
+            _buildExpiringSoonSection(),
             const SizedBox(height: 20),
-            _buildInventorySection(context),
+            _buildInventorySection(),
           ],
         ),
       ),
@@ -283,7 +365,7 @@ class HomePage extends StatelessWidget {
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
-            label: 'Home', // Selected label
+            label: 'Home',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.qr_code_scanner),
