@@ -1,16 +1,10 @@
-# fridge_mate_app
+# FridgeMate
 
-A new Flutter project.
+## Smart cooking starts with smart inventory. Never waste a bite!
 
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+With FridgeMate, you scan barcodes to easily log & track what’s in your fridge and get
+tailored recipes based on your tastes. Stay on top of your inventory with notifications
+for expiring items and earn rewards for using what you have. FridgeMate makes meal
+planning easier, more eco-friendly, and budget-friendly by helping you use what you have
+on hand and avoid unnecessary purchases. Efficiently utilizing your groceries means less
+waste and more savings, making your wallet as happy as the planet.
