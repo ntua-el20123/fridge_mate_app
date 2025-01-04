@@ -7,7 +7,7 @@ class User {
   final String username;
   final String password; // Consider hashing instead of storing plaintext
   final String email;
-  final String dateOfBirth;
+  final DateTime dateOfBirth;
 
   User({
     this.id,
@@ -23,7 +23,7 @@ class User {
       'username': username,
       'password': password,
       'email': email,
-      'dateOfBirth': dateOfBirth,
+      'dateOfBirth': dateOfBirth.toIso8601String(),
     };
   }
 }
@@ -33,7 +33,7 @@ class Item {
   final int? id;
   final int userId; // FK reference to 'users(id)'
   final String itemName;
-  final String
+  final DateTime
       expiryDate; // Consider using a standardized date format or storing as an integer timestamp
   final String category;
 
@@ -50,7 +50,7 @@ class Item {
       'id': id,
       'userId': userId,
       'itemName': itemName,
-      'expiryDate': expiryDate,
+      'expiryDate': expiryDate.toIso8601String(),
       'category': category,
     };
   }
@@ -122,9 +122,6 @@ class Db {
   /// Returns the id of the newly inserted row.
   Future<int> insertUser(User user) async {
     final db = await database;
-    // Optionally: hash the user.password before storing
-    // final hashedPassword = someHashFunction(user.password);
-    // final userToInsert = user.copyWith(password: hashedPassword);
     return await db.insert('users', user.toMap());
   }
 
@@ -138,7 +135,7 @@ class Db {
         username: maps[i]['username'] as String,
         password: maps[i]['password'] as String,
         email: maps[i]['email'] as String,
-        dateOfBirth: maps[i]['dateOfBirth'] as String,
+        dateOfBirth: DateTime.parse(maps[i]['dateOfBirth'] as String),
       );
     });
   }
@@ -162,7 +159,7 @@ class Db {
         username: row['username'] as String,
         password: row['password'] as String,
         email: row['email'] as String,
-        dateOfBirth: row['dateOfBirth'] as String,
+        dateOfBirth: DateTime.parse(row['dateOfBirth'] as String),
       );
     }
     return null;
@@ -220,7 +217,7 @@ class Db {
         id: maps[i]['id'] as int?,
         userId: maps[i]['userId'] as int,
         itemName: maps[i]['itemName'] as String,
-        expiryDate: maps[i]['expiryDate'] as String,
+        expiryDate: DateTime.parse(maps[i]['expiryDate'] as String),
         category: maps[i]['category'] as String,
       );
     });

@@ -56,7 +56,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       username: username,
       password: password,
       email: email,
-      dateOfBirth: dateOfBirth,
+      dateOfBirth: DateTime.parse(dateOfBirth),
     );
     print('Inserting user: $user');
     await db.insertUser(user);

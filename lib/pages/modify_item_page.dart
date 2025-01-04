@@ -32,7 +32,7 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
     // If an existing item was passed, fill controllers with its data
     if (widget.item != null) {
       _descriptionController.text = widget.item!.itemName;
-      _expirationController.text = widget.item!.expiryDate;
+      _expirationController.text = (widget.item!.expiryDate).toIso8601String();
       _categoryController.text = widget.item!.category;
     }
   }
@@ -64,7 +64,7 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
       final newItem = Item(
         userId: widget.userId, // link to the user's ID
         itemName: description,
-        expiryDate: expiration,
+        expiryDate: DateTime.parse(expiration),
         category: category,
       );
       await db.insertItem(newItem);
@@ -74,7 +74,7 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
         id: widget.item!.id, // preserve the existing item's ID
         userId: widget.userId, // link to the user's ID
         itemName: description,
-        expiryDate: expiration,
+        expiryDate: DateTime.parse(expiration),
         category: category,
       );
       await db.updateItem(updatedItem);

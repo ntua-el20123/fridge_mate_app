@@ -20,7 +20,7 @@ void main() async {
         username: 'john_doe',
         password: '123456',
         email: 'mail@example.com',
-        dateOfBirth: '01/01/1990'),
+        dateOfBirth: DateTime.parse('1990-01-01')),
   );
 
   // Now run the app
