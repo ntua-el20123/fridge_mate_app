@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:fridge_mate_app/db.dart';
 import 'package:fridge_mate_app/pages/modify_item_page.dart';
+import 'package:fridge_mate_app/pages/scan_page.dart';
 
-/// A button that shows a popup menu to select a sorting option.
+/// SortButton: Shows a popup menu for different sorting options.
 class SortButton extends StatelessWidget {
   final Function(String) onSortOptionSelected;
 
-  /// Pass in a callback to handle the user’s choice.
   const SortButton({
     super.key,
     required this.onSortOptionSelected,
@@ -41,8 +41,8 @@ class SortButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
         decoration: BoxDecoration(
-          color: Colors.green, // Background color
-          borderRadius: BorderRadius.circular(30), // Rounded corners
+          color: Colors.green,
+          borderRadius: BorderRadius.circular(30),
         ),
         child: const Row(
           mainAxisSize: MainAxisSize.min,
@@ -60,7 +60,7 @@ class SortButton extends StatelessWidget {
   }
 }
 
-/// The home page displays the user’s items and an “Expiring Soon” section.
+/// HomePage: Displays the user’s items and an “Expiring Soon” section.
 class HomePage extends StatefulWidget {
   final int userId;
 
@@ -71,37 +71,42 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  /// Reference to the singleton database helper.
   final db = Db.instance;
 
-  /// Stores all the items owned by the user.
+  /// All items owned by the user.
   List<Item> _items = [];
 
-  /// Items that are about to expire soon (you define the criteria).
+  /// A single item that’s about to expire soon.
   Item? _expiringSoon;
+
+  /// Currently selected bottom navigation index.
+  int _selectedIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadUserItems();
+    _fetchUserItems();
   }
 
-  /// Fetch the user’s items from the database and update the UI.
-  Future<void> _loadUserItems() async {
+  /// Fetches the user’s items from the database and updates UI.
+  Future<void> _fetchUserItems() async {
     final userItems = await db.getUserItems(widget.userId);
-
     setState(() {
       _items = userItems;
-      _expiringSoon = _filterExpiringSoon(userItems);
+      _expiringSoon = _getExpiringSoonItem(userItems);
     });
   }
 
-  Item? _filterExpiringSoon(List<Item> allItems) {
+  /// Returns the earliest expiry item, or null if none exist.
+  Item? _getExpiringSoonItem(List<Item> allItems) {
     if (allItems.isEmpty) return null;
     allItems.sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
+    // Return the first item (soonest to expire)
     return allItems.first;
   }
 
-  /// Callback from SortButton to sort the list of items in various ways.
+  /// Called when a sort option is selected from SortButton.
   void _onSortOptionSelected(String option) {
     setState(() {
       switch (option) {
@@ -109,70 +114,60 @@ class _HomePageState extends State<HomePage> {
           _items.sort((a, b) => a.itemName.compareTo(b.itemName));
           break;
         case 'expiration':
-          // For real comparison, parse expiryDate as DateTime.
-          // Here we do a simple string comparison:
           _items.sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
           break;
         case 'recently_added':
-          // If you assume higher ID means more recent,
-          // sort descending by ID:
+          // Higher ID assumed to be more recent
           _items.sort((a, b) => b.id!.compareTo(a.id!));
           break;
         case 'category':
           _items.sort((a, b) => a.category.compareTo(b.category));
           break;
       }
-      // Re-filter expiring soon as well
-      _expiringSoon = _filterExpiringSoon(_items);
+      // Re-find the expiring soon item
+      _expiringSoon = _getExpiringSoonItem(_items);
     });
   }
 
-  /// Navigate to modify item page to add a new item.
-  void _onAddItem() async {
-    // Example: Navigate to a page that returns true/false if a new item was added
+  /// Navigate to ModifyItemPage to add a new item, refresh on success.
+  Future<void> _addItem() async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ModifyItemPage(userId: widget.userId),
       ),
     );
-
     if (result == true) {
-      // Reload items after successful addition
-      _loadUserItems();
+      _fetchUserItems();
     }
   }
 
-  /// Navigate to modify item page to edit the existing item.
-  void _onItemClicked(Item item) async {
-    // Navigate with the item info
+  /// Navigate to ModifyItemPage to edit an existing item, refresh on success.
+  Future<void> _editItem(Item item) async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ModifyItemPage(userId: widget.userId, item: item),
       ),
     );
-
     if (result == true) {
-      // Reload items after successful modification
-      _loadUserItems();
+      _fetchUserItems();
     }
   }
 
-  /// Delete a specific item and reload the list.
-  Future<void> _onDeleteItem(int itemId) async {
+  /// Delete an item and refresh the list.
+  Future<void> _deleteItem(int itemId) async {
     await db.deleteItem(itemId);
-    _loadUserItems();
+    _fetchUserItems();
   }
 
-  /// Builds a list of items that are “about to expire soon.”
+  /// Builds the “Expires Soon” section UI.
   Widget _buildExpiringSoonSection() {
     if (_expiringSoon == null) {
       return const SizedBox(); // No items expiring soon
     }
 
     final item = _expiringSoon!;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -201,17 +196,18 @@ class _HomePageState extends State<HomePage> {
                 color: Colors.grey[300],
               ),
               const SizedBox(width: 10),
-              // Details
+
+              // Item details
               Expanded(
                 child: InkWell(
-                  onTap: () => _onItemClicked(item),
+                  onTap: () => _editItem(item),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(item.itemName),
                       const SizedBox(height: 5),
                       Text(
-                        'Ex. ${item.expiryDate}',
+                        'Ex. ${item.expiryDate.toString().split(' ').first}',
                         style: const TextStyle(
                           fontSize: 12,
                           color: Colors.grey,
@@ -221,8 +217,10 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
+
+              // Delete button
               IconButton(
-                onPressed: () => _onDeleteItem(item.id!),
+                onPressed: () => _deleteItem(item.id!),
                 icon: const Icon(Icons.delete, color: Colors.black),
               ),
             ],
@@ -232,7 +230,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// Builds the “Your Inventory” section with the user’s items.
+  /// Builds the “Your Inventory” section UI.
   Widget _buildInventorySection() {
     return Expanded(
       child: Column(
@@ -246,12 +244,13 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           const SizedBox(height: 10),
-          // Buttons: Add and Sort
+
+          // Add & Sort buttons
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               ElevatedButton(
-                onPressed: _onAddItem,
+                onPressed: _addItem,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                 ),
@@ -260,17 +259,15 @@ class _HomePageState extends State<HomePage> {
                   style: TextStyle(color: Colors.white),
                 ),
               ),
-              // Our SortButton with the callback
               SortButton(onSortOptionSelected: _onSortOptionSelected),
             ],
           ),
           const SizedBox(height: 10),
-          // Inventory List
+
+          // Items list
           Expanded(
             child: _items.isEmpty
-                ? const Center(
-                    child: Text('No items yet.'),
-                  )
+                ? const Center(child: Text('No items yet.'))
                 : ListView.builder(
                     itemCount: _items.length,
                     itemBuilder: (context, index) {
@@ -292,17 +289,18 @@ class _HomePageState extends State<HomePage> {
                               color: Colors.grey[300],
                             ),
                             const SizedBox(width: 10),
-                            // Details (tap to edit)
+
+                            // Item details
                             Expanded(
                               child: InkWell(
-                                onTap: () => _onItemClicked(item),
+                                onTap: () => _editItem(item),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(item.itemName),
                                     const SizedBox(height: 5),
                                     Text(
-                                      'Ex. ${item.expiryDate}',
+                                      'Ex. ${item.expiryDate.toString().split(' ').first}',
                                       style: const TextStyle(
                                         fontSize: 12,
                                         color: Colors.grey,
@@ -312,12 +310,12 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ),
                             ),
+
+                            // Delete button
                             IconButton(
-                              onPressed: () => _onDeleteItem(item.id!),
-                              icon: const Icon(
-                                Icons.delete,
-                                color: Colors.black,
-                              ),
+                              onPressed: () => _deleteItem(item.id!),
+                              icon:
+                                  const Icon(Icons.delete, color: Colors.black),
                             ),
                           ],
                         ),
@@ -330,11 +328,26 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// Bottom navigation onTap handler
+  void _onNavItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+      if (index == 1) {
+        // For example, navigate to scanner page
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ScanPage()),
+        );
+      }
+      // Add more logic for other nav items if needed
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        // Remove the default back arrow
+        // Remove default back arrow
         automaticallyImplyLeading: false,
         title: const Text(
           'FridgeMate',
@@ -361,6 +374,8 @@ class _HomePageState extends State<HomePage> {
         unselectedItemColor: Colors.black,
         showSelectedLabels: false,
         showUnselectedLabels: false,
+        currentIndex: _selectedIndex,
+        onTap: _onNavItemTapped,
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
