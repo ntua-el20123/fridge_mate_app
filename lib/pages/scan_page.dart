@@ -69,11 +69,12 @@ class _ScanPageState extends State<ScanPage> {
           flex: 4,
           child: MobileScanner(
             controller: _mobileScannerController,
-            // Prevent scanning the same code multiple times in a row
-            allowDuplicates: false,
-            onDetect: (barcode, args) {
-              final rawValue = barcode.rawValue ?? 'No result';
-              setState(() => barcodeResult = rawValue);
+            onDetect: (BarcodeCapture barcode) {
+              final barcodeList = barcode.barcodes;
+              final rawValue = barcodeList.isNotEmpty
+                  ? barcodeList.first.rawValue
+                  : 'No result';
+              setState(() => barcodeResult = rawValue ?? 'No result');
               // Pause the scanner after a result
               _mobileScannerController.stop();
             },

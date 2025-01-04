@@ -33,7 +33,7 @@ dependencies:
   sqflite: ^2.2.8+4
   path: ^1.8.0
   sqflite_common_ffi: ^2.3.4+4
-  mobile_scanner: ^2.1.0
+  mobile_scanner: ^5.0.0
   permission_handler: ^11.0.1
 
 
