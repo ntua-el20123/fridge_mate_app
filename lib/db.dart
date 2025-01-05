@@ -1,11 +1,14 @@
-import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:logging/logging.dart';
 
 /// Represents a user in the system.
 class User {
   final int? id;
   final String username;
-  final String password; // Consider hashing instead of storing plaintext
+  final String password;
   final String email;
   final DateTime dateOfBirth;
 
@@ -31,10 +34,9 @@ class User {
 /// Represents an item belonging to a user.
 class Item {
   final int? id;
-  final int userId; // FK reference to 'users(id)'
+  final int userId;
   final String itemName;
-  final DateTime
-      expiryDate; // Consider using a standardized date format or storing as an integer timestamp
+  final DateTime expiryDate;
   final String category;
 
   Item({
@@ -58,34 +60,53 @@ class Item {
 
 /// Singleton Database helper class.
 class Db {
-  /// The single instance of [Db].
   static final Db instance = Db._internal();
+  final log = Logger('DbLogger');
   Db._internal();
 
-  // SQLite database reference
-  static Database? _database;
+  Database? _database;
+  final String dbFile = "fridgemate.db";
 
-  /// Provides a single database instance throughout the app.
   Future<Database> get database async {
-    _database ??= await _initDatabase();
+    if (_database != null) {
+      log.config("Database instance already exists.");
+      return _database!;
+    }
+    _database = await initDB();
     return _database!;
   }
 
-  /// Initializes (and creates if necessary) the SQLite database.
-  Future<Database> _initDatabase() async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'fridgemate.db');
+  Future<Database> initDB() async {
+    log.config("Initializing database.");
 
-    return await openDatabase(
-      path,
-      version: 1,
-      onCreate: _onCreate,
-      // onUpgrade: _onUpgrade, // Optionally handle schema upgrades here
-    );
+    if (Platform.isWindows || Platform.isLinux) {
+      sqfliteFfiInit();
+      final databaseFactory = databaseFactoryFfi;
+      final appDocumentsDir = await getApplicationDocumentsDirectory();
+      final dbPath = join(appDocumentsDir.path, "databases", dbFile);
+
+      return await databaseFactory.openDatabase(
+        dbPath,
+        options: OpenDatabaseOptions(
+          version: 1,
+          onCreate: _onCreate,
+        ),
+      );
+    } else {
+      final documentsDirectory = await getApplicationDocumentsDirectory();
+      final path = join(documentsDirectory.path, dbFile);
+
+      return await openDatabase(
+        path,
+        version: 1,
+        onCreate: _onCreate,
+      );
+    }
   }
 
-  /// Creates the necessary tables the first time the DB is accessed.
   Future<void> _onCreate(Database db, int version) async {
+    log.config("Creating tables in the database.");
+
     await db.execute('''
       CREATE TABLE users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -99,58 +120,46 @@ class Db {
     await db.execute('''
       CREATE TABLE items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        userId INTEGER,
+        userId INTEGER NOT NULL,
         itemName TEXT NOT NULL,
-        expiryDate TEXT,
+        expiryDate TEXT NOT NULL,
         category TEXT,
         FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
       )
     ''');
   }
 
-  // Uncomment or modify for future DB version upgrades.
-  // Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-  //   // Example: If you change schema in new versions, handle it here.
-  // }
-
-  // ---------------------------------------------------------------------------
-  // USER METHODS
-  // ---------------------------------------------------------------------------
-
-  /// Inserts a [User] into the [users] table.
-  ///
-  /// Returns the id of the newly inserted row.
+  /// Inserts a [User] into the database.
   Future<int> insertUser(User user) async {
+    log.config("Inserting user: ${user.toMap()}");
     final db = await database;
-    return await db.insert('users', user.toMap());
+    return await db.insert('users', user.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  /// Retrieves all users from the [users] table.
+  /// Retrieves all users from the database.
   Future<List<User>> getUsers() async {
+    log.config("Fetching all users.");
     final db = await database;
-    final maps = await db.query('users');
-    return List.generate(maps.length, (i) {
-      return User(
-        id: maps[i]['id'] as int?,
-        username: maps[i]['username'] as String,
-        password: maps[i]['password'] as String,
-        email: maps[i]['email'] as String,
-        dateOfBirth: DateTime.parse(maps[i]['dateOfBirth'] as String),
-      );
-    });
+    final results = await db.query('users');
+
+    return results
+        .map((row) => User(
+              id: row['id'] as int?,
+              username: row['username'] as String,
+              password: row['password'] as String,
+              email: row['email'] as String,
+              dateOfBirth: DateTime.parse(row['dateOfBirth'] as String),
+            ))
+        .toList();
   }
 
-  /// Retrieves a single [User] by their [username].
-  ///
-  /// Returns `null` if no user is found.
+  /// Retrieves a single user by username.
   Future<User?> getUserByUsername(String username) async {
+    log.config("Fetching user with username: $username");
     final db = await database;
-    final results = await db.query(
-      'users',
-      where: 'username = ?',
-      whereArgs: [username],
-      limit: 1,
-    );
+    final results = await db.query('users',
+        where: 'username = ?', whereArgs: [username], limit: 1);
 
     if (results.isNotEmpty) {
       final row = results.first;
@@ -165,84 +174,58 @@ class Db {
     return null;
   }
 
-  /// Deletes a user by [userId]. Due to the `ON DELETE CASCADE` constraint,
-  /// their items will also be removed.
-  ///
-  /// Returns the number of rows deleted.
-  Future<int> deleteUser(int userId) async {
-    final db = await database;
-    return await db.delete(
-      'users',
-      where: 'id = ?',
-      whereArgs: [userId],
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // ITEM METHODS
-  // ---------------------------------------------------------------------------
-
-  /// Inserts an [Item] into the [items] table.
-  ///
-  /// Returns the id of the newly inserted row.
+  /// Inserts an [Item] into the database.
   Future<int> insertItem(Item item) async {
+    log.config("Inserting item: ${item.toMap()}");
     final db = await database;
-    return await db.insert('items', item.toMap());
+    return await db.insert('items', item.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  /// Updates an [Item] in the [items] table.
-  ///
-  /// Returns the number of rows updated.
-  Future<int> updateItem(Item item) async {
-    final db = await database;
-    return await db.update(
-      'items',
-      item.toMap(),
-      where: 'id = ?',
-      whereArgs: [item.id],
-    );
-  }
-
-  /// Retrieves all items belonging to a specific [userId].
+  /// Retrieves all items for a specific user.
   Future<List<Item>> getUserItems(int userId) async {
+    log.config("Fetching items for userId: $userId");
     final db = await database;
-    final maps = await db.query(
-      'items',
-      where: 'userId = ?',
-      whereArgs: [userId],
-    );
+    final results =
+        await db.query('items', where: 'userId = ?', whereArgs: [userId]);
 
-    return List.generate(maps.length, (i) {
-      return Item(
-        id: maps[i]['id'] as int?,
-        userId: maps[i]['userId'] as int,
-        itemName: maps[i]['itemName'] as String,
-        expiryDate: DateTime.parse(maps[i]['expiryDate'] as String),
-        category: maps[i]['category'] as String,
-      );
-    });
+    return results
+        .map((row) => Item(
+              id: row['id'] as int?,
+              userId: row['userId'] as int,
+              itemName: row['itemName'] as String,
+              expiryDate: DateTime.parse(row['expiryDate'] as String),
+              category: row['category'] as String,
+            ))
+        .toList();
   }
 
-  /// Deletes an item by [itemId].
-  ///
-  /// Returns the number of rows deleted.
+  /// Deletes a user and their associated items.
+  Future<int> deleteUser(int userId) async {
+    log.config("Deleting user with userId: $userId");
+    final db = await database;
+    return await db.delete('users', where: 'id = ?', whereArgs: [userId]);
+  }
+
+  /// Deletes an item by its ID.
   Future<int> deleteItem(int itemId) async {
+    log.config("Deleting item with itemId: $itemId");
     final db = await database;
-    return await db.delete(
-      'items',
-      where: 'id = ?',
-      whereArgs: [itemId],
-    );
+    return await db.delete('items', where: 'id = ?', whereArgs: [itemId]);
   }
 
-  // ---------------------------------------------------------------------------
-  // OPTIONAL: Close the DB
-  // ---------------------------------------------------------------------------
+  /// Updates an item.
+  Future<int> updateItem(Item item) async {
+    log.config("Updating item: ${item.toMap()}");
+    final db = await database;
+    return await db
+        .update('items', item.toMap(), where: 'id = ?', whereArgs: [item.id]);
+  }
 
-  /// Closes the database, freeing up resources. Call this when your app
-  /// is disposed or no longer needs DB access (e.g., on logout).
+  /// Closes the database.
   Future<void> closeDatabase() async {
     if (_database != null) {
+      log.config("Closing the database.");
       await _database!.close();
       _database = null;
     }
