@@ -32,7 +32,7 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
     super.initState();
     if (widget.item != null) {
       _descriptionController.text = widget.item!.itemName;
-      _expirationController.text = widget.item!.expiryDate.toIso8601String();
+      _expirationController.text = widget.item!.expiryDate.toLocal().toString().split(' ')[0];
       _categoryController.text = widget.item!.category;
       if (widget.item!.image != null) {
         _imageFile = File(widget.item!.image!);
