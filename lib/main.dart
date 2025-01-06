@@ -2,16 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:fridge_mate_app/pages/home_page.dart';
 import 'package:fridge_mate_app/pages/register_page.dart';
 import 'package:fridge_mate_app/db.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart'; // For desktop DB support
 
 // Ensure Flutter bindings before runApp for async DB operations
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize the database factory for ffi (desktop platforms)
-  sqfliteFfiInit(); // Initialize FFI
-  databaseFactory =
-      databaseFactoryFfi; // Set database factory for file-based DB
 
   // Optionally insert dummy data on app start
   final dbHelper = Db.instance;

@@ -33,9 +33,9 @@ class Item {
   final int? id;
   final int userId; // FK reference to 'users(id)'
   final String itemName;
-  final DateTime
-      expiryDate; // Consider using a standardized date format or storing as an integer timestamp
+  final DateTime expiryDate;
   final String category;
+  final String? image; // Optional image column
 
   Item({
     this.id,
@@ -43,6 +43,7 @@ class Item {
     required this.itemName,
     required this.expiryDate,
     required this.category,
+    this.image,
   });
 
   Map<String, dynamic> toMap() {
@@ -52,6 +53,7 @@ class Item {
       'itemName': itemName,
       'expiryDate': expiryDate.toIso8601String(),
       'category': category,
+      'image': image, // Include image in the map
     };
   }
 }
@@ -78,9 +80,9 @@ class Db {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, // Updated version
       onCreate: _onCreate,
-      // onUpgrade: _onUpgrade, // Optionally handle schema upgrades here
+      onUpgrade: _onUpgrade, // Handle schema upgrades
     );
   }
 
@@ -103,23 +105,26 @@ class Db {
         itemName TEXT NOT NULL,
         expiryDate TEXT,
         category TEXT,
+        image TEXT, -- New image column
         FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
       )
     ''');
   }
 
-  // Uncomment or modify for future DB version upgrades.
-  // Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-  //   // Example: If you change schema in new versions, handle it here.
-  // }
+  /// Handles schema upgrades for new versions of the database.
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('''
+        ALTER TABLE items ADD COLUMN image TEXT
+      ''');
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // USER METHODS
   // ---------------------------------------------------------------------------
 
   /// Inserts a [User] into the [users] table.
-  ///
-  /// Returns the id of the newly inserted row.
   Future<int> insertUser(User user) async {
     final db = await database;
     return await db.insert('users', user.toMap());
@@ -141,8 +146,6 @@ class Db {
   }
 
   /// Retrieves a single [User] by their [username].
-  ///
-  /// Returns `null` if no user is found.
   Future<User?> getUserByUsername(String username) async {
     final db = await database;
     final results = await db.query(
@@ -165,10 +168,7 @@ class Db {
     return null;
   }
 
-  /// Deletes a user by [userId]. Due to the `ON DELETE CASCADE` constraint,
-  /// their items will also be removed.
-  ///
-  /// Returns the number of rows deleted.
+  /// Deletes a user by [userId].
   Future<int> deleteUser(int userId) async {
     final db = await database;
     return await db.delete(
@@ -183,16 +183,12 @@ class Db {
   // ---------------------------------------------------------------------------
 
   /// Inserts an [Item] into the [items] table.
-  ///
-  /// Returns the id of the newly inserted row.
   Future<int> insertItem(Item item) async {
     final db = await database;
     return await db.insert('items', item.toMap());
   }
 
   /// Updates an [Item] in the [items] table.
-  ///
-  /// Returns the number of rows updated.
   Future<int> updateItem(Item item) async {
     final db = await database;
     return await db.update(
@@ -219,13 +215,12 @@ class Db {
         itemName: maps[i]['itemName'] as String,
         expiryDate: DateTime.parse(maps[i]['expiryDate'] as String),
         category: maps[i]['category'] as String,
+        image: maps[i]['image'] as String?, // Include the image field
       );
     });
   }
 
   /// Deletes an item by [itemId].
-  ///
-  /// Returns the number of rows deleted.
   Future<int> deleteItem(int itemId) async {
     final db = await database;
     return await db.delete(
@@ -235,12 +230,7 @@ class Db {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // OPTIONAL: Close the DB
-  // ---------------------------------------------------------------------------
-
-  /// Closes the database, freeing up resources. Call this when your app
-  /// is disposed or no longer needs DB access (e.g., on logout).
+  /// Closes the database.
   Future<void> closeDatabase() async {
     if (_database != null) {
       await _database!.close();

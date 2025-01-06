@@ -78,7 +78,7 @@ class _HomePageState extends State<HomePage> {
   List<Item> _items = [];
 
   /// A single item that’s about to expire soon.
-  Item? _expiringSoon;
+  List<Item> _expiringSoon = [];
 
   /// Currently selected bottom navigation index.
   int _selectedIndex = 0;
@@ -94,20 +94,26 @@ class _HomePageState extends State<HomePage> {
     final userItems = await db.getUserItems(widget.userId);
     setState(() {
       _items = userItems;
-      _expiringSoon = _getExpiringSoonItem(userItems);
+      _expiringSoon = _getExpiringSoonItems(userItems);
     });
   }
 
-  /// Returns the earliest expiry item, or null if none exist.
-  Item? _getExpiringSoonItem(List<Item> allItems) {
-    if (allItems.isEmpty) return null;
-    allItems.sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
-    // Return the first item (soonest to expire)
-    return allItems.first;
-  }
+/// Returns a list of items expiring within the next 3 days.
+List<Item> _getExpiringSoonItems(List<Item> allItems) {
+  if (allItems.isEmpty) return [];
+  
+  final now = DateTime.now();
+  final threeDaysFromNow = now.add(Duration(days: 3));
+  
+  // Filter items expiring within the next 3 days
+  return allItems
+      .where((item) => item.expiryDate.isBefore(threeDaysFromNow) && item.expiryDate.isAfter(now))
+      .toList();
+}
 
   /// Called when a sort option is selected from SortButton.
   void _onSortOptionSelected(String option) {
+    print('Sort option selected: $option'); // Debugging
     setState(() {
       switch (option) {
         case 'alphabetical':
@@ -117,17 +123,17 @@ class _HomePageState extends State<HomePage> {
           _items.sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
           break;
         case 'recently_added':
-          // Higher ID assumed to be more recent
-          _items.sort((a, b) => b.id!.compareTo(a.id!));
+          _items.sort((a, b) => b.id!.compareTo(a.id!)); // Newest first
           break;
         case 'category':
           _items.sort((a, b) => a.category.compareTo(b.category));
           break;
       }
-      // Re-find the expiring soon item
-      _expiringSoon = _getExpiringSoonItem(_items);
+      print(_items); // Debugging: Check the sorted order
+      _expiringSoon = _getExpiringSoonItems(_items); // Recompute if necessary
     });
   }
+
 
   /// Navigate to ModifyItemPage to add a new item, refresh on success.
   Future<void> _addItem() async {
@@ -161,172 +167,186 @@ class _HomePageState extends State<HomePage> {
     _fetchUserItems();
   }
 
-  /// Builds the “Expires Soon” section UI.
-  Widget _buildExpiringSoonSection() {
-    if (_expiringSoon == null) {
-      return const SizedBox(); // No items expiring soon
-    }
+/// Builds the “Expires Soon” section UI.
+Widget _buildExpiringSoonSection() {
+  final expiringSoonItems = _getExpiringSoonItems(_items); // Fetch items expiring soon
+  if (expiringSoonItems.isEmpty) {
+    return const SizedBox(); // No items expiring soon
+  }
 
-    final item = _expiringSoon!;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      // Center the "Expires Soon" text
+      const Center(
+        child: Text(
           'Expires Soon',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
         ),
-        const SizedBox(height: 10),
-        Container(
-          margin: const EdgeInsets.only(bottom: 8.0),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.black),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          padding: const EdgeInsets.all(8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Placeholder for an image thumbnail
-              Container(
-                width: 60,
-                height: 60,
-                color: Colors.grey[300],
-              ),
-              const SizedBox(width: 10),
+      ),
+      const SizedBox(height: 10),
 
-              // Item details
-              Expanded(
-                child: InkWell(
-                  onTap: () => _editItem(item),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(item.itemName),
-                      const SizedBox(height: 5),
-                      Text(
-                        'Ex. ${item.expiryDate.toString().split(' ').first}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
+      // Horizontally scrollable section
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: expiringSoonItems.map((item) {
+            return Container(
+              margin: const EdgeInsets.only(right: 8.0),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.black),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.all(8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Placeholder for an image thumbnail
+                  Container(
+                    width: 60,
+                    height: 60,
+                    color: Colors.grey[300],
                   ),
-                ),
-              ),
+                  const SizedBox(width: 10),
 
-              // Delete button
-              IconButton(
-                onPressed: () => _deleteItem(item.id!),
-                icon: const Icon(Icons.delete, color: Colors.black),
+                  // Item details
+                  InkWell(
+                    onTap: () => _editItem(item),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(item.itemName),
+                        const SizedBox(height: 5),
+                        Text(
+                          'Ex. ${item.expiryDate.toString().split(' ').first}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Delete button
+                  IconButton(
+                    onPressed: () => _deleteItem(item.id!),
+                    icon: const Icon(Icons.delete, color: Colors.black),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          }).toList(),
         ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
+}
 
-  /// Builds the “Your Inventory” section UI.
-  Widget _buildInventorySection() {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
+
+ /// Builds the “Your Inventory” section UI.
+Widget _buildInventorySection() {
+  return Expanded(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Center the "Your Inventory" text
+        const Center(
+          child: Text(
             'Your Inventory',
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 18,
             ),
           ),
-          const SizedBox(height: 10),
+        ),
+        const SizedBox(height: 10),
 
-          // Add & Sort buttons
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              ElevatedButton(
-                onPressed: _addItem,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                ),
-                child: const Text(
-                  '+ Add',
-                  style: TextStyle(color: Colors.white),
-                ),
+        // Add & Sort buttons
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            ElevatedButton(
+              onPressed: _addItem,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
               ),
-              SortButton(onSortOptionSelected: _onSortOptionSelected),
-            ],
-          ),
-          const SizedBox(height: 10),
+              child: const Text(
+                '+ Add',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+            SortButton(onSortOptionSelected: _onSortOptionSelected),
+          ],
+        ),
+        const SizedBox(height: 10),
 
-          // Items list
-          Expanded(
-            child: _items.isEmpty
-                ? const Center(child: Text('No items yet.'))
-                : ListView.builder(
-                    itemCount: _items.length,
-                    itemBuilder: (context, index) {
-                      final item = _items[index];
-                      return Container(
-                        margin: const EdgeInsets.symmetric(vertical: 5),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.black),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        padding: const EdgeInsets.all(8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            // Placeholder for an image thumbnail
-                            Container(
-                              width: 60,
-                              height: 60,
-                              color: Colors.grey[300],
-                            ),
-                            const SizedBox(width: 10),
+        // Items list
+        Expanded(
+          child: _items.isEmpty
+              ? const Center(child: Text('No items yet.'))
+              : ListView.builder(
+                  itemCount: _items.length,
+                  itemBuilder: (context, index) {
+                    final item = _items[index];
+                    return Container(
+                      margin: const EdgeInsets.symmetric(vertical: 5),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.black),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.all(8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // Placeholder for an image thumbnail
+                          Container(
+                            width: 60,
+                            height: 60,
+                            color: Colors.grey[300],
+                          ),
+                          const SizedBox(width: 10),
 
-                            // Item details
-                            Expanded(
-                              child: InkWell(
-                                onTap: () => _editItem(item),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(item.itemName),
-                                    const SizedBox(height: 5),
-                                    Text(
-                                      'Ex. ${item.expiryDate.toString().split(' ').first}',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey,
-                                      ),
+                          // Item details
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => _editItem(item),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(item.itemName),
+                                  const SizedBox(height: 5),
+                                  Text(
+                                    'Ex. ${item.expiryDate.toString().split(' ').first}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ),
+                          ),
 
-                            // Delete button
-                            IconButton(
-                              onPressed: () => _deleteItem(item.id!),
-                              icon:
-                                  const Icon(Icons.delete, color: Colors.black),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
+                          // Delete button
+                          IconButton(
+                            onPressed: () => _deleteItem(item.id!),
+                            icon: const Icon(Icons.delete, color: Colors.black),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    ),
+  );
+}
+
 
   /// Bottom navigation onTap handler
   void _onNavItemTapped(int index) {
