@@ -9,7 +9,7 @@ import 'package:fridge_mate_app/pages/home_page.dart';
 // import 'package:fridge_mate_app/pages/profile_page.dart';
 
 class ScanPage extends StatefulWidget {
-  const ScanPage({super.key});
+  const ScanPage({Key? key}) : super(key: key);
 
   @override
   State<ScanPage> createState() => _ScanPageState();

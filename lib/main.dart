@@ -1,32 +1,26 @@
 import 'package:flutter/material.dart';
-import 'dart:io' show Platform;
 import 'package:fridge_mate_app/pages/home_page.dart';
 import 'package:fridge_mate_app/pages/register_page.dart';
 import 'package:fridge_mate_app/db.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart'; // For desktop DB support
 
+// Ensure Flutter bindings before runApp for async DB operations
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Check the platform and initialize the appropriate database factory
-  if (Platform.isWindows || Platform.isLinux) {
-    // Initialize FFI for desktop platforms
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
-  } else {
-    // Use the default database factory for mobile platforms
-    databaseFactory = databaseFactory;
-  }
+  // Initialize the database factory for ffi (desktop platforms)
+  sqfliteFfiInit(); // Initialize FFI
+  databaseFactory =
+      databaseFactoryFfi; // Set database factory for file-based DB
 
   // Optionally insert dummy data on app start
   final dbHelper = Db.instance;
   await dbHelper.insertUser(
     User(
-      username: 'john_doe',
-      password: '123456',
-      email: 'mail@example.com',
-      dateOfBirth: DateTime.parse('1990-01-01'),
-    ),
+        username: 'john_doe',
+        password: '123456',
+        email: 'mail@example.com',
+        dateOfBirth: DateTime.parse('1990-01-01')),
   );
 
   // Now run the app
@@ -77,6 +71,12 @@ class _LoginScreenState extends State<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
 
+  // Example 'forgot' callback
+  void _onForgotCredentialsPressed() {
+    // Implement your logic (e.g., show a dialog or navigate)
+  }
+
+  // Validate form, then check credentials against DB
   Future<void> _onLoginPressed() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -84,34 +84,41 @@ class _LoginScreenState extends State<LoginScreen> {
     final username = _usernameController.text.trim();
     final password = _passwordController.text;
 
-    try {
-      final user = await dbHelper.getUserByUsername(username);
+    // Try to get user by username
+    final user = await dbHelper.getUserByUsername(username);
 
-      if (user == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('User not found.')),
-        );
-      } else if (user.password != password) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid password.')),
-        );
-      } else {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => HomePage(userId: user.id!)),
-        );
-      }
-    } catch (e) {
+    if (!mounted) return;
+
+    if (user == null) {
+      // User not found in DB
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('An error occurred.')),
+        const SnackBar(
+          content: Text('User not found.'),
+        ),
+      );
+    } else if (user.password != password) {
+      // Wrong password
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid password.'),
+        ),
+      );
+    } else {
+      // Login success -> navigate to Home
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => HomePage(userId: user.id!)),
       );
     }
   }
 
+  // Registration route
   void _onRegisterPressed() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const RegisterScreen()),
+      MaterialPageRoute(
+        builder: (_) => const RegisterScreen(),
+      ),
     );
   }
 
@@ -129,7 +136,10 @@ class _LoginScreenState extends State<LoginScreen> {
         title: const Text(
           'FridgeMate',
           style: TextStyle(
-              fontWeight: FontWeight.bold, fontSize: 20, color: Colors.white),
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            color: Colors.white,
+          ),
         ),
         backgroundColor: Colors.green,
       ),
@@ -141,6 +151,7 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // Title text
               const Center(
                 child: Text(
                   'Never waste a bite!',
@@ -159,35 +170,89 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 40),
+              // Username
               TextFormField(
                 controller: _usernameController,
-                decoration: const InputDecoration(labelText: 'Username'),
-                validator: (value) => value == null || value.trim().isEmpty
-                    ? 'Please enter your username'
-                    : null,
+                decoration: const InputDecoration(
+                  labelText: 'Username',
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter your username';
+                  }
+                  return null; // Valid
+                },
               ),
               const SizedBox(height: 20),
+              // Password
               TextFormField(
                 controller: _passwordController,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Password'),
-                validator: (value) => value == null || value.isEmpty
-                    ? 'Please enter your password'
-                    : (value.length < 6
-                        ? 'Password must be at least 6 characters'
-                        : null),
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your password';
+                  }
+                  if (value.length < 6) {
+                    return 'Password must be at least 6 characters long';
+                  }
+                  return null; // Valid
+                },
               ),
               const SizedBox(height: 20),
+              // Forgot credentials
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'Forgot username/password?',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                  TextButton(
+                    onPressed: _onForgotCredentialsPressed,
+                    child: const Text(
+                      'Click here',
+                      style: TextStyle(fontSize: 14, color: Colors.purple),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              // Login button
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 80, vertical: 18),
+                ),
                 onPressed: _onLoginPressed,
-                child:
-                    const Text('Login', style: TextStyle(color: Colors.white)),
+                child: const Text(
+                  'Login',
+                  style: TextStyle(fontSize: 16, color: Colors.white),
+                ),
               ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _onRegisterPressed,
-                child: const Text('Register',
-                    style: TextStyle(color: Colors.white)),
+              const SizedBox(height: 100),
+              // Registration prompt
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    "Don't have an account?",
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                    ),
+                    onPressed: _onRegisterPressed,
+                    child: const Text(
+                      'Register!',
+                      style: TextStyle(fontSize: 13, color: Colors.white),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
