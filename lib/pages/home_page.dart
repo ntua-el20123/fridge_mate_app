@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:fridge_mate_app/db.dart';
 import 'package:fridge_mate_app/pages/modify_item_page.dart';
 import 'package:fridge_mate_app/pages/scan_page.dart';
+import 'package:fridge_mate_app/pages/recipe_page.dart';
 
 /// SortButton: Shows a popup menu for different sorting options.
 class SortButton extends StatelessWidget {
@@ -167,7 +169,7 @@ List<Item> _getExpiringSoonItems(List<Item> allItems) {
     _fetchUserItems();
   }
 
-/// Builds the “Expires Soon” section UI.
+
 Widget _buildExpiringSoonSection() {
   final expiringSoonItems = _getExpiringSoonItems(_items); // Fetch items expiring soon
   if (expiringSoonItems.isEmpty) {
@@ -204,11 +206,22 @@ Widget _buildExpiringSoonSection() {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Placeholder for an image thumbnail
+                  // Display item image
                   Container(
                     width: 60,
                     height: 60,
-                    color: Colors.grey[300],
+                    child: item.image != null && item.image!.isNotEmpty
+                        ? Image.file(
+                            File(item.image!), // Load from file
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Icon(Icons.error);
+                            },
+                          )
+                        : Container(
+                            color: Colors.grey[300],
+                            child: const Icon(Icons.image_not_supported),
+                          ),
                   ),
                   const SizedBox(width: 10),
 
@@ -247,8 +260,9 @@ Widget _buildExpiringSoonSection() {
 }
 
 
- /// Builds the “Your Inventory” section UI.
-Widget _buildInventorySection() {
+
+
+ Widget _buildInventorySection() {
   return Expanded(
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -302,11 +316,22 @@ Widget _buildInventorySection() {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          // Placeholder for an image thumbnail
+                          // Display item image
                           Container(
                             width: 60,
                             height: 60,
-                            color: Colors.grey[300],
+                            child: item.image != null && item.image!.isNotEmpty
+                                ? Image.file(
+                                    File(item.image!), // Load from file
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return const Icon(Icons.error);
+                                    },
+                                  )
+                                : Container(
+                                    color: Colors.grey[300],
+                                    child: const Icon(Icons.image_not_supported),
+                                  ),
                           ),
                           const SizedBox(width: 10),
 
@@ -348,20 +373,43 @@ Widget _buildInventorySection() {
 }
 
 
-  /// Bottom navigation onTap handler
-  void _onNavItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-      if (index == 1) {
-        // For example, navigate to scanner page
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ScanPage()),
-        );
-      }
-      // Add more logic for other nav items if needed
-    });
+
+
+// Bottom navigation onTap handler
+void _onNavItemTapped(int index) {
+  if (_selectedIndex == index) return; // Prevents redundant navigation
+
+  setState(() {
+    _selectedIndex = index;
+  });
+
+  // Navigate to the selected page
+  Widget nextPage;
+
+  switch (index) {
+    case 0: // Home Page
+      nextPage = HomePage(userId: widget.userId); // Pass userId to HomePage
+      break;
+    case 1: // Scan Page
+      nextPage = const ScanPage();
+      break;
+    case 2: // Recipe Page
+      nextPage = RecipePage(userId: widget.userId); // Pass userId to RecipePage
+      break;
+    //case 3: // Profile Page
+      // = const ProfilePage(); // ProfilePage should be implemented
+      //break;
+    default:
+      return;
   }
+
+  // Navigate using pushReplacement
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(builder: (_) => nextPage),
+  );
+}
+
 
   @override
   Widget build(BuildContext context) {

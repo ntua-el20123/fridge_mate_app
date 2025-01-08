@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:fridge_mate_app/pages/recipe_page.dart';
 
 // Replace with your actual pages
 import 'package:fridge_mate_app/pages/home_page.dart';
@@ -44,10 +45,10 @@ class _ScanPageState extends State<ScanPage> {
           break;
         case 2:
           // Navigate to Recipes or another page
-          // Navigator.pushReplacement(
-          //   context,
-          //   MaterialPageRoute(builder: (_) => const RecipesPage()),
-          // );
+           Navigator.pushReplacement(
+             context,
+             MaterialPageRoute(builder: (_) => const RecipePage(userId: 1)),
+           );
           break;
         case 3:
           // Navigate to Profile

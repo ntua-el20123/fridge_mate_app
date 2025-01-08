@@ -1,10 +1,17 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:fridge_mate_app/pages/home_page.dart';
 import 'package:fridge_mate_app/pages/register_page.dart';
 import 'package:fridge_mate_app/db.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 // Ensure Flutter bindings before runApp for async DB operations
 void main() async {
+
+  if (Platform.isWindows || Platform.isLinux) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
   WidgetsFlutterBinding.ensureInitialized();
 
 
