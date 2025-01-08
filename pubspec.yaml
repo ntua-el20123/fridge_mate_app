@@ -40,6 +40,7 @@ dependencies:
   google_generative_ai: any
   flutter_markdown: ^0.7.4+2
   url_launcher: ^6.2.6
+  path_provider: ^2.0.11
 
 
 
