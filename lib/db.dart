@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
@@ -80,45 +82,101 @@ class Db {
 
     return await openDatabase(
       path,
-      version: 2, // Updated version
+      version: 3, // Increment this if you're adding the `favorites` table
       onCreate: _onCreate,
-      onUpgrade: _onUpgrade, // Handle schema upgrades
+      onUpgrade: _onUpgrade,
     );
   }
 
-  /// Creates the necessary tables the first time the DB is accessed.
-  Future<void> _onCreate(Database db, int version) async {
-    await db.execute('''
-      CREATE TABLE users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT NOT NULL,
-        password TEXT NOT NULL,
-        email TEXT NOT NULL,
-        dateOfBirth TEXT NOT NULL
-      )
-    ''');
+ /// Adds a 'favorites' table to store user's favorite recipes
+Future<void> _onCreate(Database db, int version) async {
+  await db.execute('''
+    CREATE TABLE users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL,
+      password TEXT NOT NULL,
+      email TEXT NOT NULL,
+      dateOfBirth TEXT NOT NULL
+    )
+  ''');
 
+  await db.execute('''
+    CREATE TABLE items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      userId INTEGER,
+      itemName TEXT NOT NULL,
+      expiryDate TEXT,
+      category TEXT,
+      image TEXT,
+      FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
+    )
+  ''');
+
+  await db.execute('''
+    CREATE TABLE favorites (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      userId INTEGER NOT NULL,
+      recipeName TEXT NOT NULL,
+      ingredients TEXT NOT NULL,
+      instructions TEXT NOT NULL,
+      FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
+    )
+  ''');
+}
+
+
+/// Retrieves all favorite recipes for a specific user.
+Future<List<Map<String, dynamic>>> getFavoriteRecipes(int userId) async {
+  final db = await database;
+  final maps = await db.query(
+    'favorites',
+    where: 'userId = ?',
+    whereArgs: [userId],
+  );
+
+  // Parse the database records into a structured list
+  return List.generate(maps.length, (i) {
+    final ingredientsRaw = maps[i]['ingredients'];
+    final ingredients = ingredientsRaw != null && ingredientsRaw is String
+        ? List<String>.from(jsonDecode(ingredientsRaw))
+        : [];
+
+    return {
+      'id': maps[i]['id'],
+      'name': maps[i]['recipeName'] ?? 'Unknown Recipe',
+      'ingredients': ingredients,
+      'instructions': maps[i]['instructions'] ?? 'No instructions provided.',
+    };
+  });
+}
+
+
+
+/// Deletes a favorite recipe by its ID.
+Future<int> deleteFavoriteRecipe(int recipeId) async {
+  final db = await database;
+  return await db.delete(
+    'favorites',
+    where: 'id = ?',
+    whereArgs: [recipeId],
+  );
+}
+
+  /// Handles schema upgrades for new versions of the database.
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+  if (oldVersion < 3) { // Increment the version if needed
     await db.execute('''
-      CREATE TABLE items (
+      CREATE TABLE IF NOT EXISTS favorites (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        userId INTEGER,
-        itemName TEXT NOT NULL,
-        expiryDate TEXT,
-        category TEXT,
-        image TEXT, -- New image column
+        userId INTEGER NOT NULL,
+        recipeName TEXT NOT NULL,
+        ingredients TEXT NOT NULL,
+        instructions TEXT NOT NULL,
         FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
       )
     ''');
   }
-
-  /// Handles schema upgrades for new versions of the database.
-  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      await db.execute('''
-        ALTER TABLE items ADD COLUMN image TEXT
-      ''');
-    }
-  }
+}
 
   // ---------------------------------------------------------------------------
   // USER METHODS
@@ -177,6 +235,69 @@ class Db {
       whereArgs: [userId],
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // FAVOURITE RECIPE METHODS
+  // ---------------------------------------------------------------------------
+
+
+
+  /// Inserts a recipe into the `favorites` table.
+Future<void> insertFavoriteRecipe(
+  int userId,
+  String name,
+  List<String> ingredients,
+  String instructions,
+) async {
+  final db = await database;
+
+  // Check for duplicate entries
+  final existing = await db.query(
+    'favorites',
+    where: 'userId = ? AND recipeName = ?',
+    whereArgs: [userId, name],
+  );
+
+  if (existing.isNotEmpty) {
+    // If the recipe already exists, return without inserting
+    return;
+  }
+
+  // Insert the recipe into the database
+  await db.insert('favorites', {
+    'userId': userId,
+    'recipeName': name,
+    'ingredients': jsonEncode(ingredients),
+    'instructions': instructions,
+  });
+}
+
+
+
+Future<void> deleteFavoriteRecipeByName(int userId, String recipeName) async {
+  final db = await database;
+
+  // Delete the specific recipe
+  await db.delete(
+    'favorites',
+    where: 'userId = ? AND recipeName = ?',
+    whereArgs: [userId, recipeName],
+  );
+}
+
+
+
+  /// Checks if a recipe is in the user's favorites.
+  Future<bool> isRecipeFavorite(int userId, String recipeName) async {
+    final db = await database;
+    final maps = await db.query(
+      'favorites',
+      where: 'userId = ? AND recipeName = ?',
+      whereArgs: [userId, recipeName],
+    );
+    return maps.isNotEmpty;
+  }
+
 
   // ---------------------------------------------------------------------------
   // ITEM METHODS

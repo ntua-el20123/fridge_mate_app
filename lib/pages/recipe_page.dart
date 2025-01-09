@@ -16,7 +16,7 @@ class RecipePage extends StatefulWidget {
 
 class _RecipePageState extends State<RecipePage> {
   List<Map<String, dynamic>> _expiringSoonRecipes = [];
-  List<Map<String, dynamic>> _mustTryRecipes = [];
+  List<Map<String, dynamic>> _favoriteRecipes = [];
   bool _isLoading = true; // Loading state
 
   // Selected index for bottom navigation
@@ -25,8 +25,34 @@ class _RecipePageState extends State<RecipePage> {
   @override
   void initState() {
     super.initState();
-    _fetchRecipes(); // Fetch recipes when the page loads
+    _fetchRecipes(); // Fetch expiring soon recipes
+    _fetchFavoriteRecipes(); // Fetch user's favorite recipes
   }
+
+  /// Fetches favorite recipes from the database
+  Future<void> _fetchFavoriteRecipes() async {
+    final dbHelper = Db.instance;
+    final favorites = await dbHelper.getFavoriteRecipes(widget.userId);
+
+    setState(() {
+      _favoriteRecipes = favorites;
+    });
+  }
+
+ /// Adds a recipe to favorites
+  Future<void> _addToFavorites(Map<String, dynamic> recipe) async {
+    final dbHelper = Db.instance;
+    await dbHelper.insertFavoriteRecipe(
+      widget.userId,
+      recipe['name'],
+      recipe['ingredients'],
+      recipe['instructions'],
+    );
+
+    // Refresh the favorite recipes list
+    _fetchFavoriteRecipes();
+  }
+
 
   /// Fetches the user's items from the database
   Future<List<Map<String, String>>> fetchUserItemsWithExpiry(int userId) async {
@@ -61,38 +87,32 @@ class _RecipePageState extends State<RecipePage> {
     // Fetch fridge items
     final fridgeItems = await fetchUserItemsWithExpiry(widget.userId);
 
-    if (fridgeItems.isEmpty) {
-      setState(() {
-        _isLoading = false; // No items to process
-      });
-      return;
-    }
-
-    // Construct prompt
+    // Fetch recipes from AI
     String prompt = "Based on these ingredients and their expiration dates:\n" +
         fridgeItems
             .map((item) => "${item['name']} (expires: ${item['expiry']})")
             .join(", ") +
         ", suggest recipes 4. One recipe, does not need to use all ingredients, and also recipes should not be limited to the ingredients available. Recipe name should not include comments."+
         "Always provide the recipes in the following forat: **Name**: this_recipe_name, **Ingredient List**:....., **Instruction List**:....";
-    // Call Python script
     final result = await Process.run(
-      'py', // Path to Python executable
-      ['.\\python_scripts\\generate_recipes.py', prompt], // Python script and arguments
+      'py',
+      ['.\\python_scripts\\generate_recipes.py', prompt],
     );
 
     if (result.exitCode == 0) {
-      // Parse the Python script's JSON output
       final data = jsonDecode(result.stdout);
       final generatedText = data['text'] ?? '';
 
+      // Extract recipes from AI output
       final expiringSoon = _extractRecipes(generatedText, fridgeItems);
 
-      // Save recipes to files
-      await _saveRecipesToFiles(data, expiringSoon);
+      // Load favorite recipes from the database
+      final dbHelper = Db.instance;
+      final favoriteRecipes = await dbHelper.getFavoriteRecipes(widget.userId);
 
       setState(() {
         _expiringSoonRecipes = expiringSoon;
+        _favoriteRecipes = favoriteRecipes; // Ensure proper data loading
         _isLoading = false; // Hide loading indicator
       });
     } else {
@@ -107,6 +127,7 @@ class _RecipePageState extends State<RecipePage> {
     );
   }
 }
+
 
   /// Extract recipes from the response
  List<Map<String, dynamic>> _extractRecipes(String response, List<Map<String, String>> fridgeItems) {
@@ -167,7 +188,6 @@ Future<Map<String, dynamic>> _checkIngredientsAvailability(Map<String, dynamic> 
   // Extract the ingredients from the recipe
   final ingredients = recipe['ingredients'] as List<String>? ?? [];
 
-  // Helper function to check if a recipe ingredient is available in the fridge items
   bool isIngredientAvailable(String recipeIngredient) {
     return fridgeItems.any((fridgeItem) {
       final fridgeName = fridgeItem['name']?.toLowerCase() ?? '';
@@ -175,16 +195,48 @@ Future<Map<String, dynamic>> _checkIngredientsAvailability(Map<String, dynamic> 
     });
   }
 
-  // Find missing ingredients
   final missingIngredients = ingredients
       .where((ingredient) => !isIngredientAvailable(ingredient))
       .toList();
 
   return {
-    'available': missingIngredients.isEmpty, // True if no ingredients are missing
-    'missingCount': missingIngredients.length, // Count of missing ingredients
+    'available': missingIngredients.isEmpty,
+    'missingCount': missingIngredients.length,
   };
 }
+
+
+void _addRecipeToFavorites(Map<String, dynamic> recipe) async {
+  final dbHelper = Db.instance;
+
+  await dbHelper.insertFavoriteRecipe(
+    widget.userId,
+    recipe['name'] ?? 'Unknown Recipe',
+    List<String>.from(recipe['ingredients'] ?? []),
+    recipe['instructions'] ?? 'No instructions provided.',
+  );
+
+  // Refresh the favorite recipes list
+  final updatedFavorites = await dbHelper.getFavoriteRecipes(widget.userId);
+  setState(() {
+    _favoriteRecipes = updatedFavorites;
+  });
+}
+
+
+
+void _removeRecipeFromFavorites(Map<String, dynamic> recipe) async {
+  final dbHelper = Db.instance;
+
+  await dbHelper.deleteFavoriteRecipeByName(widget.userId, recipe['name'] ?? '');
+
+  // Refresh the favorite recipes list
+  final updatedFavorites = await dbHelper.getFavoriteRecipes(widget.userId);
+  setState(() {
+    _favoriteRecipes = updatedFavorites;
+  });
+}
+
 
 
   /// Show recipe details
@@ -240,152 +292,189 @@ Future<Map<String, dynamic>> _checkIngredientsAvailability(Map<String, dynamic> 
   }
 
   /// Builds a section of recipes
-  Widget _buildRecipeSection(String title, List<Map<String, dynamic>> recipes) {
-    return ExpansionTile(
-      title: Text(
-        title,
-        style: const TextStyle(fontWeight: FontWeight.bold),
-        textAlign: TextAlign.center,
-      ),
-children: recipes.map((recipe) {
-  return FutureBuilder<Map<String, dynamic>>(
-    future: _checkIngredientsAvailability(recipe), // Asynchronous function
-    builder: (context, snapshot) {
-      if (snapshot.connectionState == ConnectionState.waiting) {
-        // Show a loading indicator while waiting for the result
-        return const CircularProgressIndicator();
-      } else if (snapshot.hasError) {
-        // Handle errors
-        return Text('Error: ${snapshot.error}');
-      } else if (snapshot.hasData) {
-        // Extract the availability data
-        final ingredientsAvailable = snapshot.data!;
-        return GestureDetector(
-          onTap: () {
-            _showRecipeDetails(recipe);
-          },
-          child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.black),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            padding: const EdgeInsets.all(10),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Container(
-                  width: 60,
-                  height: 60,
-                  color: Colors.grey[300],
-                  margin: const EdgeInsets.only(right: 10),
+Widget _buildRecipeSection(
+  String title,
+  List<Map<String, dynamic>> recipes, {
+  bool isFavoriteSection = false, // Optional parameter to distinguish sections
+}) {
+  return ExpansionTile(
+    title: Text(
+      title,
+      style: const TextStyle(fontWeight: FontWeight.bold),
+      textAlign: TextAlign.center,
+    ),
+    children: recipes.map((recipe) {
+      return FutureBuilder<Map<String, dynamic>>(
+        future: isFavoriteSection
+            ? Future.value({'available': true, 'missingCount': 0}) // Favorites don't check for missing ingredients
+            : _checkIngredientsAvailability(recipe), // Asynchronous function
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const CircularProgressIndicator();
+          } else if (snapshot.hasError) {
+            return Text('Error: ${snapshot.error}');
+          } else if (snapshot.hasData) {
+            final ingredientsAvailable = snapshot.data!;
+            final isFavorite = _favoriteRecipes.contains(recipe); // Check if the recipe is a favorite
+            return GestureDetector(
+              onTap: () {
+                _showRecipeDetails(recipe);
+              },
+              child: Container(
+                margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.black),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        recipe['name'] ?? 'Unknown Recipe',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        recipe['description'] ?? 'No description available.',
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: ingredientsAvailable['available'] ? Colors.green : Colors.yellow,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Center(
-                    child: ingredientsAvailable['available']
-                        ? const Icon(Icons.check, color: Colors.white)
-                        : Text(
-                            '${ingredientsAvailable['missingCount']}',
-                            style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                padding: const EdgeInsets.all(10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 60,
+                      height: 60,
+                      color: Colors.grey[300],
+                      margin: const EdgeInsets.only(right: 10),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            recipe['name'] ?? 'Unknown Recipe',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
                           ),
-                  ),
+                          const SizedBox(height: 5),
+                          Text(
+                            recipe['description'] ?? 'No description available.',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Column(
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            isFavorite ? Icons.favorite : Icons.favorite_border,
+                            color: isFavorite ? Colors.red : Colors.grey,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              if (isFavorite) {
+                                _removeRecipeFromFavorites(recipe);
+                              } else {
+                                _addRecipeToFavorites(recipe);
+                              }
+                            });
+                          },
+                        ),
+                        Container(
+                          width: 30, // Decreased size
+                          height: 30, // Decreased size
+                          decoration: BoxDecoration(
+                            color: ingredientsAvailable['available']
+                                ? Colors.green
+                                : Colors.yellow,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Center(
+                            child: ingredientsAvailable['available']
+                                ? const Icon(Icons.check, color: Colors.white)
+                                : Text(
+                                    '${ingredientsAvailable['missingCount']}',
+                                    style: const TextStyle(
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          } else {
+            return const Text('No data available');
+          }
+        },
+      );
+    }).toList(),
+  );
+}
+
+
+
+
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(
+      automaticallyImplyLeading: false,
+      title: const Center(
+        child: Text(
+          "Recipe Suggestions",
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ),
+      backgroundColor: Colors.green,
+    ),
+    body: _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : Padding(
+            padding: const EdgeInsets.all(10.0),
+            child: ListView(
+              children: [
+                _buildRecipeSection("Expiring Soon", _expiringSoonRecipes),
+                _buildRecipeSection(
+                  "Your Favorite Recipes",
+                  _favoriteRecipes,
+                  isFavoriteSection: true,
                 ),
               ],
             ),
           ),
-        );
-      } else {
-        // Fallback for unexpected cases
-        return const Text('No data available');
-      }
-    },
-  );
-}).toList(),
-
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: const Center(
-          child: Text(
-            "Recipe Suggestions",
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
+    bottomNavigationBar: BottomNavigationBar(
+      backgroundColor: Colors.green,
+      selectedItemColor: Colors.white,
+      unselectedItemColor: Colors.black,
+      showSelectedLabels: false,
+      showUnselectedLabels: false,
+      currentIndex: _selectedIndex,
+      onTap: _onNavItemTapped,
+      type: BottomNavigationBarType.fixed,
+      items: const [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.home),
+          label: 'Home',
         ),
-        backgroundColor: Colors.green,
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(10.0),
-              child: ListView(
-                children: [
-                  _buildRecipeSection("Expiring Soon", _expiringSoonRecipes),
-                  _buildRecipeSection("Must Try", _mustTryRecipes),
-                ],
-              ),
-            ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.green,
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.black,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
-        currentIndex: _selectedIndex,
-        onTap: _onNavItemTapped,
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.qr_code_scanner),
-            label: 'Scan',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.food_bank),
-            label: 'Recipes',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-      ),
-    );
-  }
+        BottomNavigationBarItem(
+          icon: Icon(Icons.qr_code_scanner),
+          label: 'Scan',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.food_bank),
+          label: 'Recipes',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.person),
+          label: 'Profile',
+        ),
+      ],
+    ),
+  );
+}
 }
