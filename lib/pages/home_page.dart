@@ -105,7 +105,7 @@ List<Item> _getExpiringSoonItems(List<Item> allItems) {
   if (allItems.isEmpty) return [];
   
   final now = DateTime.now();
-  final threeDaysFromNow = now.add(Duration(days: 3));
+  final threeDaysFromNow = now.add(const Duration(days: 3));
   
   // Filter items expiring within the next 3 days
   return allItems
@@ -210,7 +210,7 @@ Widget _buildExpiringSoonSection() {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     // Display item image
-                    Container(
+                    SizedBox(
                       width: 60,
                       height: 60,
                       child: item.image != null && item.image!.isNotEmpty
@@ -330,7 +330,7 @@ Widget _buildExpiringSoonSection() {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           // Display item image
-                          Container(
+                          SizedBox(
                             width: 60,
                             height: 60,
                             child: item.image != null && item.image!.isNotEmpty
