@@ -192,67 +192,80 @@ Widget _buildExpiringSoonSection() {
       const SizedBox(height: 10),
 
       // Horizontally scrollable section
-      SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: expiringSoonItems.map((item) {
-            return Container(
-              margin: const EdgeInsets.only(right: 8.0),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.black),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding: const EdgeInsets.all(8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Display item image
-                  Container(
-                    width: 60,
-                    height: 60,
-                    child: item.image != null && item.image!.isNotEmpty
-                        ? Image.file(
-                            File(item.image!), // Load from file
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Icon(Icons.error);
-                            },
-                          )
-                        : Container(
-                            color: Colors.grey[300],
-                            child: const Icon(Icons.image_not_supported),
-                          ),
-                  ),
-                  const SizedBox(width: 10),
-
-                  // Item details
-                  InkWell(
-                    onTap: () => _editItem(item),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(item.itemName),
-                        const SizedBox(height: 5),
-                        Text(
-                          'Ex. ${item.expiryDate.toString().split(' ').first}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
+      SizedBox(
+        height: 100, // Set a fixed height for the scrollable area
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: expiringSoonItems.map((item) {
+              return Container(
+                width: 200, // Ensure consistent width for each item
+                margin: const EdgeInsets.only(right: 8.0),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.black),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.all(8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Display item image
+                    Container(
+                      width: 60,
+                      height: 60,
+                      child: item.image != null && item.image!.isNotEmpty
+                          ? Image.file(
+                              File(item.image!), // Load from file
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Icon(Icons.error);
+                              },
+                            )
+                          : Container(
+                              color: Colors.grey[300],
+                              child: const Icon(Icons.image_not_supported),
+                            ),
                     ),
-                  ),
+                    const SizedBox(width: 10),
 
-                  // Delete button
-                  IconButton(
-                    onPressed: () => _deleteItem(item.id!),
-                    icon: const Icon(Icons.delete, color: Colors.black),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
+                    // Item details
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _editItem(item),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.itemName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                              overflow: TextOverflow.ellipsis, // Prevent overflow
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              'Ex. ${item.expiryDate.toString().split(' ').first}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Delete button
+                    IconButton(
+                      onPressed: () => _deleteItem(item.id!),
+                      icon: const Icon(Icons.delete, color: Colors.black),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
         ),
       ),
     ],
