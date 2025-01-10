@@ -7,20 +7,18 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 // Ensure Flutter bindings before runApp for async DB operations
 void main() async {
-
   if (Platform.isWindows || Platform.isLinux) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   }
   WidgetsFlutterBinding.ensureInitialized();
 
-
   // Optionally insert dummy data on app start
   final dbHelper = Db.instance;
   await dbHelper.insertUser(
     User(
-        username: 'john_doe',
-        password: '123456',
+        username: 'stelaras',
+        password: 'password',
         email: 'mail@example.com',
         dateOfBirth: DateTime.parse('1990-01-01')),
   );
@@ -134,6 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: const Text(
           'FridgeMate',

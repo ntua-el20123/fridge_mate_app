@@ -1,110 +1,160 @@
+import 'dart:convert';
 import 'dart:io' show Platform;
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:fridge_mate_app/pages/recipe_page.dart';
 
-// Replace with your actual pages
+import 'package:fridge_mate_app/pages/recipe_page.dart';
 import 'package:fridge_mate_app/pages/home_page.dart';
-// import 'package:fridge_mate_app/pages/recipes_page.dart';
-// import 'package:fridge_mate_app/pages/profile_page.dart';
 
 class ScanPage extends StatefulWidget {
-  const ScanPage({super.key});
+  const ScanPage({Key? key}) : super(key: key);
 
   @override
   State<ScanPage> createState() => _ScanPageState();
 }
 
 class _ScanPageState extends State<ScanPage> {
-  /// The scanner controller from mobile_scanner
-  final MobileScannerController _mobileScannerController =
-      MobileScannerController();
+  /// Controller for the mobile scanner
+  final MobileScannerController _scannerController = MobileScannerController();
 
-  /// The scanned barcode result (if any)
-  String barcodeResult = "";
+  /// Current index of bottom navigation bar
+  int _selectedIndex = 1;
 
-  /// Keep track of which bottom nav item is selected
-  int _selectedIndex = 1; // index=1 => 'Scan'
+  /// Product details parsed from QR code
+  String _description = '';
+  String _expirationDate = '';
+  String _category = '';
+  String _imageUrl = '';
 
-  /// Bottom navigation onTap handler
+  /// Raw barcode value
+  String _barcodeValue = '';
+
+  @override
+  void dispose() {
+    _scannerController.dispose();
+    super.dispose();
+  }
+
+  /// Bottom navigation bar item selection handler
   void _onNavItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
-
       switch (index) {
         case 0:
-          // Navigate to HomePage
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (_) => const HomePage(userId: 1)),
           );
           break;
         case 1:
-          // Already on Scan tab, do nothing
+          // Stay on the ScanPage
           break;
         case 2:
-          // Navigate to Recipes or another page
-           Navigator.pushReplacement(
-             context,
-             MaterialPageRoute(builder: (_) => const RecipePage(userId: 1)),
-           );
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const RecipePage(userId: 1)),
+          );
           break;
         case 3:
-          // Navigate to Profile
-          // Navigator.pushReplacement(
-          //   context,
-          //   MaterialPageRoute(builder: (_) => const ProfilePage()),
-          // );
+          // TODO: Navigate to Profile Page if needed
           break;
       }
     });
   }
 
-  /// Scanner widget for mobile platforms
-  Widget _buildMobileScanner() {
+  /// Decode JSON data from the QR code and update state
+  void _handleQRCodeData(String rawData) {
+    try {
+      final Map<String, dynamic> jsonData = jsonDecode(rawData);
+      setState(() {
+        _description = jsonData['description'] ?? 'Unknown';
+        _expirationDate = jsonData['expiration_date'] ?? 'N/A';
+        _category = jsonData['category'] ?? 'Uncategorized';
+        _imageUrl = jsonData['image'] ?? '';
+      });
+    } catch (_) {
+      // If the QR code does not contain valid JSON
+      setState(() {
+        _description = 'Invalid QR Code';
+        _expirationDate = '';
+        _category = '';
+        _imageUrl = '';
+      });
+    }
+  }
+
+  void _clearQRCodeData() {
+    setState(() {
+      _description = '';
+      _expirationDate = '';
+      _category = '';
+      _imageUrl = '';
+    });
+  }
+
+  /// Checks if the current platform supports the camera scanning feature
+  bool get _isSupportedPlatform {
+    return !(kIsWeb ||
+        Platform.isWindows ||
+        Platform.isMacOS ||
+        Platform.isLinux);
+  }
+
+  /// Builds the scanner widget and the display for scanned data
+  Widget _buildScannerView() {
     return Column(
       children: [
-        // The camera preview area
+        if (_barcodeValue.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: _buildScannedDataDisplay(),
+          ),
         Expanded(
-          flex: 4,
           child: MobileScanner(
-            controller: _mobileScannerController,
-            onDetect: (BarcodeCapture barcode) {
-              final barcodeList = barcode.barcodes;
-              final rawValue = barcodeList.isNotEmpty
-                  ? barcodeList.first.rawValue
-                  : 'No result';
-              setState(() => barcodeResult = rawValue ?? 'No result');
-              // Pause the scanner after a result
-              _mobileScannerController.stop();
+            controller: _scannerController,
+            onDetect: (capture) {
+              final barcodes = capture.barcodes;
+              final String? rawValue =
+                  barcodes.isNotEmpty ? barcodes.first.rawValue : null;
+
+              if (rawValue != null) {
+                setState(() => _barcodeValue = rawValue);
+                _scannerController.stop();
+                _handleQRCodeData(rawValue);
+              }
             },
           ),
         ),
-        // The result + "Rescan" button
-        Expanded(
-          flex: 1,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('Scan Result: $barcodeResult'),
-              const SizedBox(height: 10),
-              ElevatedButton(
-                onPressed: () {
-                  // Restart scanning
-                  _mobileScannerController.start();
-                },
-                child: const Text('Rescan'),
-              ),
-            ],
-          ),
+        ElevatedButton(
+          onPressed: () => {_scannerController.start(), _clearQRCodeData()},
+          child: const Text('Rescan'),
         ),
       ],
     );
   }
 
-  /// Fallback if scanning not supported on this platform
-  Widget _buildUnsupportedPlatform() {
+  /// Widget to display the scanned product data
+  Widget _buildScannedDataDisplay() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_description.isNotEmpty) Text('Description: $_description'),
+        if (_expirationDate.isNotEmpty)
+          Text('Expiration Date: $_expirationDate'),
+        if (_category.isNotEmpty) Text('Category: $_category'),
+        if (_imageUrl.isNotEmpty)
+          Image.network(
+            _imageUrl,
+            height: 100,
+          ),
+      ],
+    );
+  }
+
+  /// Widget to show when the platform is unsupported
+  Widget _buildUnsupportedPlatformView() {
     return const Center(
       child: Text(
         'QR scanning is not supported on this platform.',
@@ -113,58 +163,53 @@ class _ScanPageState extends State<ScanPage> {
     );
   }
 
-  @override
-  void dispose() {
-    _mobileScannerController.dispose();
-    super.dispose();
+  /// Builds the bottom navigation bar
+  Widget _buildBottomNavigationBar() {
+    return BottomNavigationBar(
+      backgroundColor: Colors.green,
+      selectedItemColor: Colors.white,
+      unselectedItemColor: Colors.black,
+      showSelectedLabels: false,
+      showUnselectedLabels: false,
+      currentIndex: _selectedIndex,
+      onTap: _onNavItemTapped,
+      type: BottomNavigationBarType.fixed,
+      items: const [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.home),
+          label: 'Home',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.qr_code_scanner),
+          label: 'Scan',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.food_bank),
+          label: 'Recipes',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.person),
+          label: 'Profile',
+        ),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Only support Android/iOS out of the box
-    final bool isSupportedPlatform =
-        !(kIsWeb || Platform.isWindows || Platform.isMacOS || Platform.isLinux);
-
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: false, // remove default back arrow
         title: const Text(
           'FridgeMate',
           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
         backgroundColor: Colors.green,
+        automaticallyImplyLeading: false,
       ),
-      body: isSupportedPlatform
-          ? _buildMobileScanner()
-          : _buildUnsupportedPlatform(),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.green,
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.black,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
-        currentIndex: _selectedIndex,
-        onTap: _onNavItemTapped,
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.qr_code_scanner),
-            label: 'Scan',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.food_bank),
-            label: 'Recipes',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-      ),
+      body: _isSupportedPlatform
+          ? _buildScannerView()
+          : _buildUnsupportedPlatformView(),
+      bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 }
