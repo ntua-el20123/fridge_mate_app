@@ -8,12 +8,14 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'view_recipe_page.dart';
 
 
-final model = GenerativeModel(model: 'gemini-1.5-flash-latest', apiKey: "AIzaSyDtxljF3n95aH8VdY5TXOAiwgHShzjBTOo");
+final model = GenerativeModel(
+    model: 'gemini-1.5-flash-latest',
+    apiKey: "AIzaSyDtxljF3n95aH8VdY5TXOAiwgHShzjBTOo");
 
 class RecipePage extends StatefulWidget {
   final int userId; // User ID passed to fetch items
 
-  const RecipePage({Key? key, required this.userId}) : super(key: key);
+  const RecipePage({super.key, required this.userId});
 
   @override
   State<RecipePage> createState() => _RecipePageState();
@@ -44,7 +46,7 @@ class _RecipePageState extends State<RecipePage> {
     });
   }
 
- /// Adds a recipe to favorites
+  /// Adds a recipe to favorites
   Future<void> _addToFavorites(Map<String, dynamic> recipe) async {
     final dbHelper = Db.instance;
     await dbHelper.insertFavoriteRecipe(
@@ -58,28 +60,32 @@ class _RecipePageState extends State<RecipePage> {
     _fetchFavoriteRecipes();
   }
 
-
   /// Fetches the user's items from the database
   Future<List<Map<String, String>>> fetchUserItemsWithExpiry(int userId) async {
     final dbHelper = Db.instance;
     final userItems = await dbHelper.getUserItems(userId);
 
     // Convert fetched items into a list of maps containing name and expiry date
-    return userItems.map((item) => {
-          "name": item.itemName,
-          "expiry": item.expiryDate.toString().split(' ').first, // Format YYYY-MM-DD
-        }).toList();
+    return userItems
+        .map((item) => {
+              "name": item.itemName,
+              "expiry": item.expiryDate
+                  .toString()
+                  .split(' ')
+                  .first, // Format YYYY-MM-DD
+            })
+        .toList();
   }
 
   /// Fetches recipes
   Future<void> _fetchRecipes() async {
-  setState(() {
-    _isLoading = true; // Show loading indicator
-  });
+    setState(() {
+      _isLoading = true; // Show loading indicator
+    });
 
-  try {
-    // Fetch fridge items
-    final fridgeItems = await fetchUserItemsWithExpiry(widget.userId);
+    try {
+      // Fetch fridge items
+      final fridgeItems = await fetchUserItemsWithExpiry(widget.userId);
 
     // Fetch recipes from AI
     String prompt = "Based on these ingredients and their expiration dates:\n" +
@@ -91,50 +97,50 @@ class _RecipePageState extends State<RecipePage> {
   // Create the content input for the model
   final content = [Content.multi([TextPart(prompt)])];
 
-  // Call the AI model's generateContent method
-  final result = await model.generateContent(content);
+      // Call the AI model's generateContent method
+      final result = await model.generateContent(content);
 
-  // Check if the result has valid data
- if (result != null && (result.text?.isNotEmpty ?? false)) {
-  final generatedText = result.text!; // Extract the generated text (force unwrap since we checked for null)
-  // Extract recipes from AI output
-  final expiringSoon = _extractRecipes(generatedText);
-  // Load favorite recipes from the database
-  final dbHelper = Db.instance;
-  final favoriteRecipes = await dbHelper.getFavoriteRecipes(widget.userId);
+      // Check if the result has valid data
+      if ((result.text?.isNotEmpty ?? false)) {
+        final generatedText = result
+            .text!; // Extract the generated text (force unwrap since we checked for null)
+        // Extract recipes from AI output
+        final expiringSoon = _extractRecipes(generatedText);
+        // Load favorite recipes from the database
+        final dbHelper = Db.instance;
+        final favoriteRecipes =
+            await dbHelper.getFavoriteRecipes(widget.userId);
 
-  setState(() {
-    _expiringSoonRecipes = expiringSoon;
-    _favoriteRecipes = favoriteRecipes; // Ensure proper data loading
-    _isLoading = false; // Hide loading indicator
-  });
-} else {
-  throw Exception('AI model returned an empty response.');
-}
-
-} catch (e) {
-  setState(() {
-    _isLoading = false; // Hide loading indicator
-  });
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text("Error fetching recipes: ${e.toString()}")),
-  );
-}
-}
-
+        setState(() {
+          _expiringSoonRecipes = expiringSoon;
+          _favoriteRecipes = favoriteRecipes; // Ensure proper data loading
+          _isLoading = false; // Hide loading indicator
+        });
+      } else {
+        throw Exception('AI model returned an empty response.');
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false; // Hide loading indicator
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error fetching recipes: ${e.toString()}")),
+      );
+    }
+  }
 
   /// Extract recipes from the response
 List<Map<String, dynamic>> _extractRecipes(String response) {
   final List<Map<String, dynamic>> parsedRecipes = [];
   if (!response.contains("**Name**:")) return parsedRecipes;
 
-  // Split the response into recipe blocks based on the "**Name**:" keyword
-  final recipeBlocks = response.split("**Name**:").skip(1).toList();
+    // Split the response into recipe blocks based on the "**Name**:" keyword
+    final recipeBlocks = response.split("**Name**:").skip(1).toList();
 
-  for (var block in recipeBlocks) {
-    // Extract the recipe name
-    final nameMatch = RegExp(r'^(.*?)\n').firstMatch(block);
-    final recipeName = nameMatch?.group(1)?.trim() ?? 'Unknown Recipe';
+    for (var block in recipeBlocks) {
+      // Extract the recipe name
+      final nameMatch = RegExp(r'^(.*?)\n').firstMatch(block);
+      final recipeName = nameMatch?.group(1)?.trim() ?? 'Unknown Recipe';
 
     // Extract the ingredient list
     final ingredientSectionMatch = RegExp(
@@ -180,38 +186,38 @@ List<Map<String, dynamic>> _extractRecipes(String response) {
 
 
 
-/// Check ingredient availability
-Future<Map<String, dynamic>> _checkIngredientsAvailability(Map<String, dynamic> recipe) async {
-  // Fetch fridge items (available ingredients) from the database
-  final fridgeItems = await fetchUserItemsWithExpiry(widget.userId);
+  /// Check ingredient availability
+  Future<Map<String, dynamic>> _checkIngredientsAvailability(
+      Map<String, dynamic> recipe) async {
+    // Fetch fridge items (available ingredients) from the database
+    final fridgeItems = await fetchUserItemsWithExpiry(widget.userId);
 
-  // Extract the ingredients from the recipe
-  final ingredients = recipe['ingredients'] as List<String>? ?? [];
+    // Extract the ingredients from the recipe
+    final ingredients = recipe['ingredients'] as List<String>? ?? [];
 
-  // Helper function to check if a recipe ingredient is available in the fridge items
-  bool isIngredientAvailable(String recipeIngredient) {
-    return fridgeItems.any((fridgeItem) {
-      final fridgeName = fridgeItem['name']?.toLowerCase() ?? '';
-      return recipeIngredient.toLowerCase().contains(fridgeName);
-    });
+    // Helper function to check if a recipe ingredient is available in the fridge items
+    bool isIngredientAvailable(String recipeIngredient) {
+      return fridgeItems.any((fridgeItem) {
+        final fridgeName = fridgeItem['name']?.toLowerCase() ?? '';
+        return recipeIngredient.toLowerCase().contains(fridgeName);
+      });
+    }
+
+    // Find missing ingredients
+    final missingIngredients = ingredients
+        .where((ingredient) => !isIngredientAvailable(ingredient))
+        .toList();
+
+    return {
+      'available':
+          missingIngredients.isEmpty, // True if no ingredients are missing
+      'missingCount': missingIngredients.length, // Count of missing ingredients
+      'missingIngredients': missingIngredients, // List of missing ingredients
+    };
   }
 
-  // Find missing ingredients
-  final missingIngredients = ingredients
-      .where((ingredient) => !isIngredientAvailable(ingredient))
-      .toList();
-
-  return {
-    'available': missingIngredients.isEmpty, // True if no ingredients are missing
-    'missingCount': missingIngredients.length, // Count of missing ingredients
-    'missingIngredients': missingIngredients, // List of missing ingredients
-  };
-}
-
-
-
-void _addRecipeToFavorites(Map<String, dynamic> recipe) async {
-  final dbHelper = Db.instance;
+  void _addRecipeToFavorites(Map<String, dynamic> recipe) async {
+    final dbHelper = Db.instance;
 
   await dbHelper.insertFavoriteRecipe(
     widget.userId,
@@ -232,10 +238,11 @@ void _addRecipeToFavorites(Map<String, dynamic> recipe) async {
 
 
 
-void _removeRecipeFromFavorites(Map<String, dynamic> recipe) async {
-  final dbHelper = Db.instance;
+  void _removeRecipeFromFavorites(Map<String, dynamic> recipe) async {
+    final dbHelper = Db.instance;
 
-  await dbHelper.deleteFavoriteRecipeByName(widget.userId, recipe['name'] ?? '');
+    await dbHelper.deleteFavoriteRecipeByName(
+        widget.userId, recipe['name'] ?? '');
 
   // Refresh the favorite recipes list
   final updatedFavorites = await dbHelper.getFavoriteRecipes(widget.userId);
@@ -345,14 +352,15 @@ Future<void> _refreshPage() async {
   await _fetchRecipes(); // Reload recipes
 }
 
-/// Updated Recipe Section Builder
-Widget _buildRecipeSection(
-  String title,
-  List<Map<String, dynamic>> recipes, {
-  bool isFavoriteSection = false, // Optional parameter to distinguish sections
-  bool isLoading = false, // Optional parameter for loading state
-}) {
-  final expandedStates = <String, bool>{title: true};
+  /// Updated Recipe Section Builder
+  Widget _buildRecipeSection(
+    String title,
+    List<Map<String, dynamic>> recipes, {
+    bool isFavoriteSection =
+        false, // Optional parameter to distinguish sections
+    bool isLoading = false, // Optional parameter for loading state
+  }) {
+    final expandedStates = <String, bool>{title: true};
 
   return StatefulBuilder(
     builder: (context, setState) {
