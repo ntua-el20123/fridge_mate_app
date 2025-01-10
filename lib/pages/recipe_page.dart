@@ -5,6 +5,8 @@ import 'package:fridge_mate_app/pages/scan_page.dart';
 import 'package:fridge_mate_app/db.dart';
 import 'dart:convert';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'view_recipe_page.dart';
+
 
 final model = GenerativeModel(model: 'gemini-1.5-flash-latest', apiKey: "AIzaSyDtxljF3n95aH8VdY5TXOAiwgHShzjBTOo");
 
@@ -69,17 +71,6 @@ class _RecipePageState extends State<RecipePage> {
         }).toList();
   }
 
-  Future<void> _saveRecipesToFiles(dynamic data, List<Map<String, dynamic>> expiringSoon) async {
-    // Save Expiring Soon Recipes to a JSON file
-    final dataFile = File('prompt_out.json');
-    await dataFile.writeAsString(jsonEncode(data));
-    
-    final expiringSoonFile = File('expiring_soon_recipes.json');
-    await expiringSoonFile.writeAsString(jsonEncode(expiringSoon));
-
-  }
-
-
   /// Fetches recipes
   Future<void> _fetchRecipes() async {
   setState(() {
@@ -95,8 +86,8 @@ class _RecipePageState extends State<RecipePage> {
         fridgeItems
             .map((item) => "${item['name']} (expires: ${item['expiry']})")
             .join(", ") +
-        ", suggest at least 6 recipes. One recipe, does not need to use all ingredients, and also recipes should not be limited to the ingredients available. Recipe names should not include comments or notes and should not be numbered"+
-        "Always provide the recipes in the following forat: **Name**: this_recipe_name, **Ingredient List**:....., **Instruction List**:....";
+        ", suggest 6 recipes. One recipe, does not need to use all ingredients, and also recipes should not be limited to the ingredients available. Recipe names should not include comments or notes and should not be numbered"+
+        "The Instruction list should also be numbered in a format similat to the ingredients. Always provide the recipes in the following forat: **Name**: this_recipe_name, **Ingredient List**:....., **Instruction List**:....";
   // Create the content input for the model
   final content = [Content.multi([TextPart(prompt)])];
 
@@ -133,7 +124,7 @@ class _RecipePageState extends State<RecipePage> {
 
 
   /// Extract recipes from the response
- List<Map<String, dynamic>> _extractRecipes(String response) {
+List<Map<String, dynamic>> _extractRecipes(String response) {
   final List<Map<String, dynamic>> parsedRecipes = [];
   if (!response.contains("**Name**:")) return parsedRecipes;
 
@@ -146,23 +137,45 @@ class _RecipePageState extends State<RecipePage> {
     final recipeName = nameMatch?.group(1)?.trim() ?? 'Unknown Recipe';
 
     // Extract the ingredient list
-    final ingredientMatch = RegExp(r'\*\*Ingredient List\*\*: (.*?)\n\n', dotAll: true).firstMatch(block);
-    final ingredientList = ingredientMatch?.group(1)?.split(', ') ?? [];
+    final ingredientSectionMatch = RegExp(
+      r'\*\*Ingredient List\*\*:\s*(.*?)(?=\*\*Instruction List\*\*|$)',
+      dotAll: true,
+    ).firstMatch(block);
+
+    // Capture all ingredients regardless of inventory
+    final ingredientSection = ingredientSectionMatch?.group(1)?.trim() ?? '';
+    final ingredientList = ingredientSection
+        .split(RegExp(r'\n')) // Split by lines
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList();
 
     // Extract the instruction list
-    final instructionMatch = RegExp(r'\*\*Instruction List\*\*: (.*)', dotAll: true).firstMatch(block);
-    final instructions = instructionMatch?.group(1)?.trim() ?? 'No instructions provided.';
+    final instructionSectionMatch = RegExp(
+      r'\*\*Instruction List\*\*:\s*(.*)',
+      dotAll: true,
+    ).firstMatch(block);
+
+    final instructionSection = instructionSectionMatch?.group(1)?.trim() ?? '';
+    final instructions = instructionSection
+        .split(RegExp(r'\n')) // Split by lines
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList();
 
     // Add the recipe to the parsed list
     parsedRecipes.add({
       'name': recipeName,
-      'ingredients': ingredientList,
+      'ingredients': ingredientList, // Store all ingredients
       'instructions': instructions,
     });
   }
 
   return parsedRecipes;
 }
+
+
+
 
 
 
@@ -203,8 +216,8 @@ void _addRecipeToFavorites(Map<String, dynamic> recipe) async {
   await dbHelper.insertFavoriteRecipe(
     widget.userId,
     recipe['name'] ?? 'Unknown Recipe',
-    List<String>.from(recipe['ingredients'] ?? []),
-    recipe['instructions'] ?? 'No instructions provided.',
+    List<String>.from(recipe['ingredients'] ?? []), // Ensure this is passed as a List<String>
+    (recipe['instructions'] as List<dynamic>?)?.join('\n') ?? 'No instructions provided.', // Join instructions into a single string
   );
 
   // Refresh the favorite recipes list
@@ -213,6 +226,9 @@ void _addRecipeToFavorites(Map<String, dynamic> recipe) async {
     _favoriteRecipes = updatedFavorites;
   });
 }
+
+
+
 
 
 
@@ -227,30 +243,6 @@ void _removeRecipeFromFavorites(Map<String, dynamic> recipe) async {
     _favoriteRecipes = updatedFavorites;
   });
 }
-
-
-
-  /// Show recipe details
-  void _showRecipeDetails(Map<String, dynamic> recipe) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(recipe['name'] ?? 'Recipe Details'),
-          content: Text(
-            'Ingredients:\n${recipe['ingredients']?.join(", ") ?? "No ingredients available."}\n\n'
-            'Instructions:\n${recipe['instructions'] ?? "No instructions available."}',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   /// Bottom navigation onTap handler
   void _onNavItemTapped(int index) {
@@ -321,8 +313,8 @@ Widget build(BuildContext context) {
       backgroundColor: Colors.green,
       selectedItemColor: Colors.white,
       unselectedItemColor: Colors.black,
-      showSelectedLabels: false,
-      showUnselectedLabels: false,
+      showSelectedLabels: true,
+      showUnselectedLabels: true,
       currentIndex: _selectedIndex,
       onTap: _onNavItemTapped,
       type: BottomNavigationBarType.fixed,
@@ -350,9 +342,6 @@ Widget build(BuildContext context) {
 
 /// Pull-to-refresh action
 Future<void> _refreshPage() async {
-  setState(() {
-    _isLoading = true; // Show loading indicator
-  });
   await _fetchRecipes(); // Reload recipes
 }
 
@@ -379,11 +368,11 @@ Widget _buildRecipeSection(
             expandedStates[title] = isExpanded;
           });
         },
-        children: isLoading
+        children: isLoading && title == "New Recipes"
             ? [
                 Container(
                   margin: const EdgeInsets.symmetric(vertical: 20.0), // Larger margin
-                  child: const Center(child: CircularProgressIndicator()),
+                  child: const Center(child: CircularProgressIndicator()), // Localized spinner
                 )
               ]
             : recipes.map((recipe) {
@@ -401,9 +390,22 @@ Widget _buildRecipeSection(
                       final description = ingredientsAvailable['available']
                           ? 'All ingredients available : )'
                           : 'Some ingredients are missing : (';
+
+                      // Navigate to the ViewRecipePage
                       return GestureDetector(
-                        onTap: () {
-                          _showRecipeDetails(recipe);
+                        onTap: () async {
+                          final fridgeItems = await fetchUserItemsWithExpiry(widget.userId);
+                          final ingredientNames = fridgeItems.map((item) => item['name'] ?? '').toList();
+
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ViewRecipePage(
+                                recipe: recipe,
+                                availableIngredients: ingredientNames, // Pass as List<String>
+                              ),
+                            ),
+                          );
                         },
                         child: Container(
                           margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),

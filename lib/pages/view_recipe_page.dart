@@ -1,93 +1,208 @@
 import 'package:flutter/material.dart';
-import 'package:fridge_mate_app/db.dart';
-import 'package:fridge_mate_app/pages/modify_item_page.dart';
+import 'package:fridge_mate_app/pages/home_page.dart';
 import 'package:fridge_mate_app/pages/scan_page.dart';
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:fridge_mate_app/pages/recipe_page.dart';
 
-class RecipePage extends StatefulWidget {
+class ViewRecipePage extends StatefulWidget {
+  final Map<String, dynamic> recipe;
+  final List<String> availableIngredients;
+
+  const ViewRecipePage({
+    Key? key,
+    required this.recipe,
+    required this.availableIngredients,
+  }) : super(key: key);
+
   @override
-  _RecipePageState createState() => _RecipePageState();
+  State<ViewRecipePage> createState() => _ViewRecipePageState();
 }
 
-class _RecipePageState extends State<RecipePage> {
-  List<dynamic> _expiringSoonRecipes = [];
-  List<dynamic> _mustTryRecipes = [];
-  List<dynamic> _favoriteRecipes = [];
-  
+class _ViewRecipePageState extends State<ViewRecipePage> {
+  int _selectedIndex = 2; // Index for the bottom navigation bar
+  late List<String> _ingredientNames;
+  late List<bool> _checkedState;
+
+  /// Handles navigation based on the selected bottom navigation item
+  void _onNavItemTapped(int index) {
+    if (_selectedIndex == index) return;
+
+    Widget nextPage;
+
+    switch (index) {
+      case 0: // Home
+        nextPage = HomePage(userId: 1); // Replace with the actual userId
+        break;
+      case 1: // Scan
+        nextPage = const ScanPage();
+        break;
+      case 2: // Recipes
+        nextPage = RecipePage(userId: 1); // Replace with the actual userId
+        break;
+      default:
+        return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => nextPage),
+    );
+
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
-    _fetchRecipes();
+
+    // Ensure ingredient names are initialized
+    _ingredientNames = (widget.recipe['ingredients'] as List<dynamic>?)
+            ?.map((ingredient) => ingredient.toString().replaceAll(RegExp(r'\(expires:.*?\)'), '').trim())
+            .toList() ??
+        []; // Default to an empty list if null
+
+    // Initialize the checked state based on available ingredients
+    _checkedState = _ingredientNames
+        .map<bool>((ingredient) => widget.availableIngredients.any(
+              (available) => ingredient.toLowerCase().contains(available.toLowerCase()),
+            ))
+        .toList();
   }
-  
-  Future<void> _fetchRecipes() async {
-    final String apiKey = 'YOUR_OPENAI_API_KEY';
-    final String endpoint = 'https://api.openai.com/v1/chat/completions';
-    
-    List<String> availableItems = ["milk", "eggs", "cheese"]; // Replace with actual fridge items
-    String prompt = "Based on these ingredients: ${availableItems.join(", ")}, suggest recipes categorized as Expiring Soon, Must Try, and Favorite Recipes.";
-    
-    final response = await http.post(
-      Uri.parse(endpoint),
-      headers: {
-        'Authorization': 'Bearer $apiKey',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        "model": "gpt-4",
-        "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 300
-      }),
-    );
-    
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final textResponse = data['choices'][0]['message']['content'];
-      
-      setState(() {
-        // Parse response into categories
-        _expiringSoonRecipes = _extractRecipes(textResponse, "Expiring Soon");
-        _mustTryRecipes = _extractRecipes(textResponse, "Must Try");
-        _favoriteRecipes = _extractRecipes(textResponse, "Favorite Recipes");
-      });
-    }
-  }
-  
-  List<dynamic> _extractRecipes(String response, String category) {
-    // Implement logic to parse response into structured recipe lists
-    return response.contains(category) ? response.split(category)[1].split("-").skip(1).toList() : [];
-  }
-  
-  Widget _buildRecipeSection(String title, List<dynamic> recipes) {
-    return ExpansionTile(
-      title: Text(title, style: TextStyle(fontWeight: FontWeight.bold)),
-      children: recipes.map((recipe) {
-        return ListTile(
-          title: Text(recipe.toString()),
-          trailing: IconButton(
-            icon: Icon(Icons.delete, color: Colors.red),
-            onPressed: () {},
-          ),
-        );
-      }).toList(),
-    );
-  }
-  
+
   @override
   Widget build(BuildContext context) {
+    final recipe = widget.recipe;
+
     return Scaffold(
-      appBar: AppBar(title: Text("Recipe Suggestions"), backgroundColor: Colors.green),
+      appBar: AppBar(
+        title: const Text(
+          "View Recipe",
+          style: TextStyle(color: Colors.white),
+        ),
+        backgroundColor: Colors.green,
+      ),
       body: Padding(
-        padding: const EdgeInsets.all(10.0),
+        padding: const EdgeInsets.all(16.0),
         child: ListView(
           children: [
-            _buildRecipeSection("Expiring Soon", _expiringSoonRecipes),
-            _buildRecipeSection("Must Try", _mustTryRecipes),
-            _buildRecipeSection("Favorite Recipes", _favoriteRecipes),
+            // Recipe Image Placeholder
+            Center(
+              child: Container(
+                width: 150,
+                height: 150,
+                color: Colors.grey[300],
+                child: const Icon(
+                  Icons.image,
+                  size: 100,
+                  color: Colors.black45,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Recipe Name
+            Text(
+              recipe['name'] ?? 'Unknown Recipe',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Ingredients
+            const Text(
+              "Ingredients:",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            ...List.generate(
+              _ingredientNames.length,
+              (index) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Checkbox(
+                      value: _checkedState[index],
+                      onChanged: (newValue) {
+                        setState(() {
+                          _checkedState[index] = newValue ?? false;
+                        });
+                      },
+                      checkColor: Colors.white,
+                      activeColor: Colors.green,
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 12.0),
+                        child: Text(
+                          _ingredientNames[index],
+                          style: TextStyle(
+                            color: _checkedState[index] ? Colors.black : Colors.red,
+                            fontSize: 18,
+                          ),
+                          softWrap: true,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 20),
+
+            // Instructions
+            const Text(
+              "Instructions:",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            ...List.generate(
+              recipe['instructions'] is List ? recipe['instructions'].length : 1,
+              (index) {
+                final instruction = recipe['instructions'] is List
+                    ? recipe['instructions'][index]
+                    : recipe['instructions'];
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  child: Text(
+                    instruction,
+                    style: const TextStyle(fontSize: 18),
+                  ),
+                );
+              },
+            ),
           ],
         ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: Colors.green,
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Colors.black,
+        currentIndex: _selectedIndex,
+        onTap: _onNavItemTapped,
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.qr_code_scanner),
+            label: 'Scan',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.food_bank),
+            label: 'Recipes',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Profile',
+          ),
+        ],
       ),
     );
   }
