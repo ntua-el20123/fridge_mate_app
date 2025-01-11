@@ -1,3 +1,5 @@
+import 'dart:convert'; // Add this import for base64 decoding
+import 'dart:typed_data'; // Add this import for Uint8List
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -29,21 +31,55 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
   final db = Db.instance;
 
   File? _imageFile;
+  Uint8List? _imageBytes; // Add this field to store the decoded image bytes
   final ImagePicker _picker = ImagePicker();
 
   int _selectedIndex = 0;
+  bool isEditing =
+      false; // Add this flag to determine if the item is being edited
 
   @override
   void initState() {
     super.initState();
     if (widget.item != null) {
-      _descriptionController.text = widget.item!.itemName;
-      _expirationController.text =
-          widget.item!.expiryDate.toLocal().toString().split(' ')[0];
-      _categoryController.text = widget.item!.category;
-      if (widget.item!.image != null) {
-        _imageFile = File(widget.item!.image!);
+      _populateFields(widget.item!);
+    }
+    _checkIfItemExists();
+  }
+
+  Future<void> _checkIfItemExists() async {
+    final description = _descriptionController.text.trim();
+    if (description.isNotEmpty) {
+      final userItems = await db.getUserItems(widget.userId);
+      final existingItem = userItems.firstWhere(
+        (item) => item.itemName == description,
+        orElse: () => Item(
+          userId: widget.userId,
+          itemName: '',
+          expiryDate: DateTime.now(),
+          category: '',
+        ),
+      );
+      if (existingItem.itemName.isNotEmpty) {
+        setState(() {
+          _populateFields(existingItem);
+          isEditing = true;
+        });
+      } else {
+        setState(() {
+          isEditing = false;
+        });
       }
+    }
+  }
+
+  void _populateFields(Item item) {
+    _descriptionController.text = item.itemName;
+    _expirationController.text =
+        item.expiryDate.toLocal().toString().split(' ')[0];
+    _categoryController.text = item.category;
+    if (item.image != null && item.image!.isNotEmpty) {
+      _imageBytes = base64Decode(item.image!); // Decode the base64 string
     }
   }
 
@@ -53,15 +89,6 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
     _expirationController.dispose();
     _categoryController.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickImage() async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() {
-        _imageFile = File(pickedFile.path);
-      });
-    }
   }
 
   Future<void> _onDone() async {
@@ -76,9 +103,24 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
       return;
     }
 
-    final itemImagePath = _imageFile?.path;
+    String? itemImagePath;
+    if (_imageFile != null) {
+      itemImagePath = base64Encode(await _imageFile!.readAsBytes());
+    } else if (_imageBytes != null) {
+      itemImagePath = base64Encode(_imageBytes!);
+    }
 
-    if (widget.item == null) {
+    if (isEditing) {
+      final updatedItem = Item(
+        id: widget.item?.id,
+        userId: widget.userId,
+        itemName: description,
+        expiryDate: DateTime.parse(expiration),
+        category: category,
+        image: itemImagePath,
+      );
+      await db.updateItem(updatedItem);
+    } else {
       final newItem = Item(
         userId: widget.userId,
         itemName: description,
@@ -87,20 +129,19 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
         image: itemImagePath,
       );
       await db.insertItem(newItem);
-    } else {
-      final updatedItem = Item(
-        id: widget.item!.id,
-        userId: widget.userId,
-        itemName: description,
-        expiryDate: DateTime.parse(expiration),
-        category: category,
-        image: itemImagePath,
-      );
-      await db.updateItem(updatedItem);
     }
 
-    if (!mounted) return;
-    Navigator.pop(context, true);
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => HomePage(userId: widget.userId)),
+    );
+  }
+
+  void _onCancel() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => HomePage(userId: widget.userId)),
+    );
   }
 
   /// Handles bottom navigation
@@ -138,13 +179,22 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isEditing = widget.item != null;
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'FridgeMate',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        automaticallyImplyLeading: false,
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(Icons.kitchen),
+            SizedBox(width: 10),
+            Text(
+              'FridgeMate',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ],
         ),
         backgroundColor: Colors.green,
       ),
@@ -153,25 +203,27 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            GestureDetector(
-              onTap: _pickImage,
-              child: Container(
-                width: 150,
-                height: 150,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(10),
-                  image: _imageFile != null
-                      ? DecorationImage(
-                          image: FileImage(_imageFile!),
-                          fit: BoxFit.cover,
-                        )
-                      : null,
-                ),
-                child: _imageFile == null
-                    ? const Icon(Icons.camera_alt, size: 50, color: Colors.grey)
-                    : null,
+            Container(
+              width: 150,
+              height: 150,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(10),
+                image: _imageFile != null
+                    ? DecorationImage(
+                        image: FileImage(_imageFile!),
+                        fit: BoxFit.cover,
+                      )
+                    : _imageBytes != null
+                        ? DecorationImage(
+                            image: MemoryImage(_imageBytes!),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
               ),
+              child: _imageFile == null && _imageBytes == null
+                  ? const Icon(Icons.camera_alt, size: 50, color: Colors.grey)
+                  : null,
             ),
             const SizedBox(height: 20),
             TextField(
@@ -201,20 +253,41 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
               ),
             ),
             const Spacer(),
-            ElevatedButton(
-              onPressed: _onDone,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                padding:
-                    const EdgeInsets.symmetric(vertical: 10, horizontal: 30),
-              ),
-              child: Text(
-                isEditing ? 'Update' : 'Done',
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold),
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(
+                  onPressed: _onDone,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 10, horizontal: 30),
+                  ),
+                  child: Text(
+                    isEditing ? 'Update' : 'Done',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                ElevatedButton(
+                  onPressed: _onCancel,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 10, horizontal: 30),
+                  ),
+                  child: Text(
+                    'Cancel',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

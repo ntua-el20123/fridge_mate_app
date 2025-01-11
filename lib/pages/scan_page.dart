@@ -6,9 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:fridge_mate_app/pages/recipe_page.dart';
 import 'package:fridge_mate_app/pages/home_page.dart';
+import 'package:fridge_mate_app/pages/modify_item_page.dart';
 import 'package:fridge_mate_app/db.dart';
-import 'dart:typed_data'; // Add this import
-import 'package:flutter/services.dart'; // Add this import for NetworkAssetBundle
+import 'dart:typed_data';
+import 'package:flutter/services.dart';
 
 class ScanPage extends StatefulWidget {
   final int userId;
@@ -27,6 +28,7 @@ class _ScanPageState extends State<ScanPage> {
   String _expirationDate = '';
   String _category = '';
   String _imageUrl = '';
+  bool _scanCompleted = false;
 
   @override
   void dispose() {
@@ -67,6 +69,9 @@ class _ScanPageState extends State<ScanPage> {
   }
 
   void _handleQRCodeData(String rawData) {
+    if (_scanCompleted) return; // Prevent multiple scans
+
+    _scanCompleted = true;
     try {
       final Map<String, dynamic> jsonData = jsonDecode(rawData);
       setState(() {
@@ -76,6 +81,7 @@ class _ScanPageState extends State<ScanPage> {
         _category = jsonData['category'] ?? 'Uncategorized';
         _imageUrl = jsonData['image'] ?? '';
       });
+      _navigateToModifyItemPage(); // Automatically navigate after scanning
     } catch (_) {
       setState(() {
         _barcodeValue = rawData;
@@ -83,34 +89,33 @@ class _ScanPageState extends State<ScanPage> {
     }
   }
 
-  Future<void> _insertItemToDatabase() async {
-    try {
-      final dbHelper = Db.instance;
-      Uint8List? imageBytes;
-
-      if (_imageUrl.isNotEmpty) {
+  Future<void> _navigateToModifyItemPage() async {
+    Uint8List? imageBytes;
+    if (_imageUrl.isNotEmpty) {
+      try {
         final imageData =
             await NetworkAssetBundle(Uri.parse(_imageUrl)).load('');
         imageBytes = imageData.buffer.asUint8List();
+      } catch (_) {
+        imageBytes = null;
       }
-      final newItem = Item(
-        userId: widget.userId,
-        itemName: _description,
-        expiryDate: DateTime.parse(_expirationDate),
-        category: _category,
-        image: imageBytes != null
-            ? base64Encode(imageBytes)
-            : null, // Convert image to base64 string
-      );
-      await dbHelper.insertItem(newItem);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Item added to inventory!')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving item: $e')),
-      );
     }
+
+    final item = Item(
+      userId: widget.userId,
+      itemName: _description,
+      expiryDate: DateTime.tryParse(_expirationDate) ??
+          DateTime.now().add(const Duration(days: 7)),
+      category: _category,
+      image: imageBytes != null ? base64Encode(imageBytes) : null,
+    );
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ModifyItemPage(userId: widget.userId, item: item),
+      ),
+    );
   }
 
   void _clearQRCodeData() {
@@ -120,6 +125,7 @@ class _ScanPageState extends State<ScanPage> {
       _expirationDate = '';
       _category = '';
       _imageUrl = '';
+      _scanCompleted = false;
     });
   }
 
@@ -150,14 +156,16 @@ class _ScanPageState extends State<ScanPage> {
           child: MobileScanner(
             controller: _scannerController,
             onDetect: (capture) {
-              _scannerController.stop();
-              final barcodes = capture.barcodes;
-              final String? rawValue =
-                  barcodes.isNotEmpty ? barcodes.first.rawValue : null;
+              if (!_scanCompleted) {
+                final barcodes = capture.barcodes;
+                final String? rawValue =
+                    barcodes.isNotEmpty ? barcodes.first.rawValue : null;
 
-              if (rawValue != null) {
-                setState(() => _barcodeValue = rawValue);
-                _handleQRCodeData(rawValue);
+                if (rawValue != null) {
+                  setState(() => _barcodeValue = rawValue);
+                  _scannerController.stop();
+                  _handleQRCodeData(rawValue);
+                }
               }
             },
           ),
@@ -167,19 +175,13 @@ class _ScanPageState extends State<ScanPage> {
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           ),
-          onPressed: () => {_scannerController.start(), _clearQRCodeData()},
+          onPressed: () {
+            _scannerController.start();
+            _clearQRCodeData();
+          },
           child: const Text('Rescan',
               style: TextStyle(fontSize: 16, color: Colors.white)),
         ),
-        if (_barcodeValue.isNotEmpty)
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            ),
-            onPressed: _insertItemToDatabase,
-            child: const Text('Add to Inventory',
-                style: TextStyle(fontSize: 16, color: Colors.white)),
-          ),
       ],
     );
   }
@@ -204,22 +206,11 @@ class _ScanPageState extends State<ScanPage> {
       onTap: _onNavItemTapped,
       type: BottomNavigationBarType.fixed,
       items: const [
+        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
         BottomNavigationBarItem(
-          icon: Icon(Icons.home),
-          label: 'Home',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.qr_code_scanner),
-          label: 'Scan',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.food_bank),
-          label: 'Recipes',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.person),
-          label: 'Profile',
-        ),
+            icon: Icon(Icons.qr_code_scanner), label: 'Scan'),
+        BottomNavigationBarItem(icon: Icon(Icons.food_bank), label: 'Recipes'),
+        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
       ],
     );
   }
