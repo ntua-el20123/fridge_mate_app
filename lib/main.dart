@@ -13,16 +13,6 @@ void main() async {
   }
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Optionally insert dummy data on app start
-  final dbHelper = Db.instance;
-  await dbHelper.insertUser(
-    User(
-        username: 'stelaras',
-        password: 'password',
-        email: 'mail@example.com',
-        dateOfBirth: DateTime.parse('1990-01-01')),
-  );
-
   // Now run the app
   runApp(const FridgeMateApp());
 }

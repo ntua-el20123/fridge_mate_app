@@ -72,13 +72,18 @@ class _RecipePageState extends State<RecipePage> {
     try {
       // Fetch fridge items
       final fridgeItems = await fetchUserItemsWithExpiry(widget.userId);
+    final db = Db.instance;
+    User? user;
 
+    // Fetch the user data first
+    user = await db.getUserById(widget.userId);
     // Fetch recipes from AI
+    print(user?.recipeCount);
     String prompt = "Based on these ingredients and their expiration dates:\n" +
         fridgeItems
             .map((item) => "${item['name']} (expires: ${item['expiry']})")
             .join(", ") +
-        ", suggest 6 recipes. One recipe, does not need to use all ingredients, and also recipes should not be limited to the ingredients available. Recipe names should not include comments or notes and should not be numbered"+
+        ", suggest ${user?.recipeCount} recipes. One recipe, does not need to use all ingredients, and also recipes should not be limited to the ingredients available. Recipe names should not include comments or notes and should not be numbered"+
         "The Instruction list should also be numbered in a format similar to the ingredients. Always provide the recipes in the following forat: **Name**: this_recipe_name, **Ingredient List**:....., **Instruction List**:....";
   // Create the content input for the model
   final content = [Content.multi([TextPart(prompt)])];

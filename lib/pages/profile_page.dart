@@ -3,6 +3,7 @@ import 'package:fridge_mate_app/db.dart';
 import 'package:fridge_mate_app/pages/home_page.dart';
 import 'package:fridge_mate_app/pages/scan_page.dart';
 import 'package:fridge_mate_app/pages/recipe_page.dart';
+import 'package:fridge_mate_app/pages/settings_page.dart';
 import 'package:fridge_mate_app/main.dart'; // Import the main script to access LoginScreen
 
 class ProfilePage extends StatefulWidget {
@@ -155,9 +156,10 @@ class _ProfilePageState extends State<ProfilePage> {
                   Center(
                     child: ElevatedButton.icon(
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Settings Page Coming Soon!')),
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => SettingsPage(userId: widget.userId), // Navigate to SettingsPage
+                        ),
                         );
                       },
                       icon: const Icon(

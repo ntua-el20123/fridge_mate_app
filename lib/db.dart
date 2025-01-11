@@ -10,6 +10,7 @@ class User {
   final String password; // Consider hashing instead of storing plaintext
   final String email;
   final DateTime dateOfBirth;
+  final int recipeCount;
 
   User({
     this.id,
@@ -17,6 +18,7 @@ class User {
     required this.password,
     required this.email,
     required this.dateOfBirth,
+    this.recipeCount= 6, 
   });
 
   Map<String, dynamic> toMap() {
@@ -26,9 +28,12 @@ class User {
       'password': password,
       'email': email,
       'dateOfBirth': dateOfBirth.toIso8601String(),
+      'recipeCount': recipeCount, 
     };
   }
 }
+
+
 
 /// Represents an item belonging to a user.
 class Item {
@@ -55,7 +60,7 @@ class Item {
       'itemName': itemName,
       'expiryDate': expiryDate.toIso8601String(),
       'category': category,
-      'image': image, // Include image in the map
+      'image': image, 
     };
   }
 }
@@ -82,11 +87,23 @@ class Db {
 
     return await openDatabase(
       path,
-      version: 3, // Increment this if you're adding the `favorites` table
+      version: 4, 
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
   }
+Future<int> updateUser(User user) async {
+  final db = await database;
+  final result = await db.update(
+    'users',
+    user.toMap(),
+    where: 'id = ?',
+    whereArgs: [user.id],
+  );
+  print("Updating user: ${user.toMap()}");
+  return result;
+}
+
 
  /// Adds a 'favorites' table to store user's favorite recipes
 Future<void> _onCreate(Database db, int version) async {
@@ -96,7 +113,8 @@ Future<void> _onCreate(Database db, int version) async {
       username TEXT NOT NULL,
       password TEXT NOT NULL,
       email TEXT NOT NULL,
-      dateOfBirth TEXT NOT NULL
+      dateOfBirth TEXT NOT NULL,
+      recipeCount INTEGER NOT NULL DEFAULT 6
     )
   ''');
 
@@ -123,7 +141,6 @@ Future<void> _onCreate(Database db, int version) async {
     )
   ''');
 }
-
 
 /// Retrieves all favorite recipes for a specific user.
 Future<List<Map<String, dynamic>>> getFavoriteRecipes(int userId) async {
@@ -164,6 +181,9 @@ Future<int> deleteFavoriteRecipe(int recipeId) async {
 
   /// Handles schema upgrades for new versions of the database.
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+  if (oldVersion < 4) { // Assuming version 4 includes recipeCount
+    await db.execute('ALTER TABLE users ADD COLUMN recipeCount INTEGER DEFAULT 6');
+  }
   if (oldVersion < 3) { // Increment the version if needed
     await db.execute('''
       CREATE TABLE IF NOT EXISTS favorites (
@@ -172,7 +192,7 @@ Future<int> deleteFavoriteRecipe(int recipeId) async {
         recipeName TEXT NOT NULL,
         ingredients TEXT NOT NULL,
         instructions TEXT NOT NULL,
-        FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
+        FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE, 
       )
     ''');
   }
@@ -200,20 +220,53 @@ Future<int> insertUser(User user) async {
 }
 
 
+
   /// Retrieves all users from the [users] table.
-  Future<List<User>> getUsers() async {
-    final db = await database;
-    final maps = await db.query('users');
-    return List.generate(maps.length, (i) {
-      return User(
-        id: maps[i]['id'] as int?,
-        username: maps[i]['username'] as String,
-        password: maps[i]['password'] as String,
-        email: maps[i]['email'] as String,
-        dateOfBirth: DateTime.parse(maps[i]['dateOfBirth'] as String),
-      );
-    });
+ Future<List<User>> getUsers() async {
+  final db = await database;
+  final maps = await db.query('users');
+  return List.generate(maps.length, (i) {
+    return User(
+      id: maps[i]['id'] as int?,
+      username: maps[i]['username'] as String,
+      password: maps[i]['password'] as String,
+      email: maps[i]['email'] as String,
+      dateOfBirth: DateTime.parse(maps[i]['dateOfBirth'] as String),
+      recipeCount: (maps[i]['recipeCount'] as int?) ?? 6,
+    );
+  });
+}
+
+/// Retrieves a single [User] by their [id].
+Future<User?> getUserById(int id) async {
+  final db = await database;
+
+  // Query the database for the user with the given ID
+  final results = await db.query(
+    'users',
+    where: 'id = ?',
+    whereArgs: [id],
+    limit: 1,
+  );
+
+  // If the result is not empty, parse the user data
+  if (results.isNotEmpty) {
+    final row = results.first;
+    return User(
+      id: row['id'] as int?,
+      username: row['username'] as String,
+      password: row['password'] as String,
+      email: row['email'] as String,
+      dateOfBirth: DateTime.parse(row['dateOfBirth'] as String),
+      recipeCount: (row['recipeCount'] as int?) ?? 6, 
+    );
   }
+
+  // Return null if no user was found
+  return null;
+}
+
+
 
   /// Retrieves a single [User] by their [username].
   Future<User?> getUserByUsername(String username) async {
