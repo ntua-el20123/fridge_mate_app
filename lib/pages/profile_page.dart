@@ -62,7 +62,7 @@ class _ProfilePageState extends State<ProfilePage> {
         nextPage = HomePage(userId: widget.userId);
         break;
       case 1:
-        nextPage = const ScanPage();
+        nextPage = ScanPage(userId: widget.userId);
         break;
       case 2:
         nextPage = RecipePage(userId: widget.userId);
@@ -88,7 +88,8 @@ class _ProfilePageState extends State<ProfilePage> {
   void _logout() {
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()), // Redirect to LoginScreen
+      MaterialPageRoute(
+          builder: (_) => const LoginScreen()), // Redirect to LoginScreen
       (route) => false, // Remove all routes
     );
   }

@@ -1,10 +1,11 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:fridge_mate_app/db.dart';
 import 'package:fridge_mate_app/pages/modify_item_page.dart';
 import 'package:fridge_mate_app/pages/scan_page.dart';
 import 'package:fridge_mate_app/pages/recipe_page.dart';
 import 'package:fridge_mate_app/pages/profile_page.dart';
+import 'dart:convert'; // To import for base64Decode
+import 'dart:typed_data'; // To import for Uint8List
 
 /// SortButton: Shows a popup menu for different sorting options.
 class SortButton extends StatelessWidget {
@@ -67,7 +68,11 @@ class HomePage extends StatefulWidget {
   final int userId;
   final String sortType; // Added sortType parameter
 
-  const HomePage({super.key, required this.userId, this.sortType = 'recently_added'});
+  const HomePage({
+    super.key,
+    required this.userId,
+    this.sortType = 'recently_added',
+  });
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -82,7 +87,8 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _currentSortType = widget.sortType; // Initialize with the sort type from the constructor
+    _currentSortType =
+        widget.sortType; // Initialize with the sort type from the constructor
     _fetchUserItems();
   }
 
@@ -145,7 +151,8 @@ class _HomePageState extends State<HomePage> {
   void _onSortOptionSelected(String option) {
     setState(() {
       _currentSortType = option; // Update the current sort type
-      _items = _sortItems(_items, _currentSortType); // Update the sorting immediately
+      _items = _sortItems(
+          _items, _currentSortType); // Update the sorting immediately
     });
   }
 
@@ -154,8 +161,17 @@ class _HomePageState extends State<HomePage> {
     final now = DateTime.now();
     final threeDaysFromNow = now.add(const Duration(days: 3));
     return allItems
-        .where((item) => item.expiryDate.isBefore(threeDaysFromNow) && item.expiryDate.isAfter(now))
+        .where((item) =>
+            item.expiryDate.isBefore(threeDaysFromNow) &&
+            item.expiryDate.isAfter(now))
         .toList();
+  }
+
+  Uint8List? _decodeImage(String? base64String) {
+    if (base64String == null || base64String.isEmpty) {
+      return null;
+    }
+    return base64Decode(base64String);
   }
 
   Widget _buildExpiringSoonSection() {
@@ -180,6 +196,7 @@ class _HomePageState extends State<HomePage> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: expiringSoonItems.map((item) {
+                final imageBytes = _decodeImage(item.image);
                 return Container(
                   width: 200,
                   margin: const EdgeInsets.only(right: 8.0),
@@ -194,9 +211,9 @@ class _HomePageState extends State<HomePage> {
                       SizedBox(
                         width: 60,
                         height: 60,
-                        child: item.image != null && item.image!.isNotEmpty
-                            ? Image.file(
-                                File(item.image!),
+                        child: imageBytes != null
+                            ? Image.memory(
+                                imageBytes,
                                 fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) {
                                   return const Icon(Icons.error);
@@ -267,7 +284,8 @@ class _HomePageState extends State<HomePage> {
               ElevatedButton(
                 onPressed: _addItem,
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                child: const Text('+ Add', style: TextStyle(color: Colors.white)),
+                child:
+                    const Text('+ Add', style: TextStyle(color: Colors.white)),
               ),
               SortButton(onSortOptionSelected: _onSortOptionSelected),
             ],
@@ -280,6 +298,7 @@ class _HomePageState extends State<HomePage> {
                     itemCount: _items.length,
                     itemBuilder: (context, index) {
                       final item = _items[index];
+                      final imageBytes = _decodeImage(item.image);
                       return Container(
                         margin: const EdgeInsets.symmetric(vertical: 5),
                         decoration: BoxDecoration(
@@ -293,17 +312,19 @@ class _HomePageState extends State<HomePage> {
                             SizedBox(
                               width: 60,
                               height: 60,
-                              child: item.image != null && item.image!.isNotEmpty
-                                  ? Image.file(
-                                      File(item.image!),
+                              child: imageBytes != null
+                                  ? Image.memory(
+                                      imageBytes,
                                       fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) {
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
                                         return const Icon(Icons.error);
                                       },
                                     )
                                   : Container(
                                       color: Colors.grey[300],
-                                      child: const Icon(Icons.image_not_supported),
+                                      child:
+                                          const Icon(Icons.image_not_supported),
                                     ),
                             ),
                             const SizedBox(width: 10),
@@ -319,19 +340,22 @@ class _HomePageState extends State<HomePage> {
                                       'Ex. ${item.expiryDate.toString().split(' ').first}',
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: item.expiryDate.isBefore(DateTime.now())
-                                            ? Colors.red // Highlight in red if expired
-                                            : Colors.grey, // Default color for non-expired items
+                                        color: item.expiryDate
+                                                .isBefore(DateTime.now())
+                                            ? Colors
+                                                .red // Highlight in red if expired
+                                            : Colors
+                                                .grey, // Default color for non-expired items
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
                             ),
-
                             IconButton(
                               onPressed: () => _deleteItem(item.id!),
-                              icon: const Icon(Icons.delete, color: Colors.black),
+                              icon:
+                                  const Icon(Icons.delete, color: Colors.black),
                             ),
                           ],
                         ),
@@ -388,10 +412,11 @@ class _HomePageState extends State<HomePage> {
           Widget nextPage;
           switch (index) {
             case 0:
-              nextPage = HomePage(userId: widget.userId, sortType: _currentSortType);
+              nextPage =
+                  HomePage(userId: widget.userId, sortType: _currentSortType);
               break;
             case 1:
-              nextPage = const ScanPage();
+              nextPage = ScanPage(userId: widget.userId);
               break;
             case 2:
               nextPage = RecipePage(userId: widget.userId);

@@ -15,13 +15,21 @@ void main() async {
 
   // Optionally insert dummy data on app start
   final dbHelper = Db.instance;
-  await dbHelper.insertUser(
-    User(
-        username: 'stelaras',
+
+  // Check if the user exists
+  final existingUser = await dbHelper.getUserByUsername('olympia');
+
+  if (existingUser == null) {
+    // User does not exist, insert the new user
+    await dbHelper.insertUser(
+      User(
+        username: 'olympia',
         password: 'password',
         email: 'mail@example.com',
-        dateOfBirth: DateTime.parse('1990-01-01')),
-  );
+        dateOfBirth: DateTime.parse('1990-01-01'),
+      ),
+    );
+  }
 
   // Now run the app
   runApp(const FridgeMateApp());

@@ -26,7 +26,7 @@ class _ViewRecipePageState extends State<ViewRecipePage> {
   late List<bool> _checkedState;
 
   /// Handles navigation based on the selected bottom navigation item
-void _onNavItemTapped(int index) {
+  void _onNavItemTapped(int index) {
     if (_selectedIndex == index) return;
 
     Widget nextPage;
@@ -36,7 +36,7 @@ void _onNavItemTapped(int index) {
         nextPage = HomePage(userId: widget.userId);
         break;
       case 1:
-        nextPage = const ScanPage();
+        nextPage = ScanPage(userId: widget.userId);
         break;
       case 2:
         nextPage = RecipePage(userId: widget.userId);
@@ -64,18 +64,21 @@ void _onNavItemTapped(int index) {
 
     // Ensure ingredient names are initialized
     _ingredientNames = (widget.recipe['ingredients'] as List<dynamic>?)
-            ?.map((ingredient) => ingredient.toString().replaceAll(RegExp(r'\(expires:.*?\)'), '').trim())
+            ?.map((ingredient) => ingredient
+                .toString()
+                .replaceAll(RegExp(r'\(expires:.*?\)'), '')
+                .trim())
             .toList() ??
         []; // Default to an empty list if null
 
     // Initialize the checked state based on available ingredients
     _checkedState = _ingredientNames
         .map<bool>((ingredient) => widget.availableIngredients.any(
-              (available) => ingredient.toLowerCase().contains(available.toLowerCase()),
+              (available) =>
+                  ingredient.toLowerCase().contains(available.toLowerCase()),
             ))
         .toList();
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -172,7 +175,9 @@ void _onNavItemTapped(int index) {
             ),
             const SizedBox(height: 10),
             ...List.generate(
-              recipe['instructions'] is List ? recipe['instructions'].length : 1,
+              recipe['instructions'] is List
+                  ? recipe['instructions'].length
+                  : 1,
               (index) {
                 final instruction = recipe['instructions'] is List
                     ? recipe['instructions'][index]

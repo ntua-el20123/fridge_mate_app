@@ -1,36 +1,32 @@
 import 'dart:convert';
 import 'package:fridge_mate_app/pages/profile_page.dart';
 import 'dart:io' show Platform;
-
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-
 import 'package:fridge_mate_app/pages/recipe_page.dart';
 import 'package:fridge_mate_app/pages/home_page.dart';
+import 'package:fridge_mate_app/db.dart';
+import 'dart:typed_data'; // Add this import
+import 'package:flutter/services.dart'; // Add this import for NetworkAssetBundle
 
 class ScanPage extends StatefulWidget {
-  const ScanPage({Key? key}) : super(key: key);
+  final int userId;
+
+  const ScanPage({super.key, required this.userId});
 
   @override
   State<ScanPage> createState() => _ScanPageState();
 }
 
 class _ScanPageState extends State<ScanPage> {
-  /// Controller for the mobile scanner
   final MobileScannerController _scannerController = MobileScannerController();
-
-  /// Current index of bottom navigation bar
   int _selectedIndex = 1;
-
-  /// Product details parsed from QR code
+  String _barcodeValue = '';
   String _description = '';
   String _expirationDate = '';
   String _category = '';
   String _imageUrl = '';
-
-  /// Raw barcode value
-  String _barcodeValue = '';
 
   @override
   void dispose() {
@@ -38,7 +34,6 @@ class _ScanPageState extends State<ScanPage> {
     super.dispose();
   }
 
-  /// Bottom navigation bar item selection handler
   void _onNavItemTapped(int index) {
     if (_selectedIndex == index) return;
 
@@ -46,16 +41,16 @@ class _ScanPageState extends State<ScanPage> {
 
     switch (index) {
       case 0:
-        nextPage = HomePage(userId: 1);
+        nextPage = HomePage(userId: widget.userId);
         break;
       case 1:
-        nextPage = const ScanPage();
+        nextPage = ScanPage(userId: widget.userId);
         break;
       case 2:
-        nextPage = RecipePage(userId: 1);
+        nextPage = RecipePage(userId: widget.userId);
         break;
       case 3:
-        nextPage = ProfilePage(userId: 1);
+        nextPage = ProfilePage(userId: widget.userId);
         break;
       default:
         return;
@@ -71,29 +66,56 @@ class _ScanPageState extends State<ScanPage> {
     });
   }
 
-  /// Decode JSON data from the QR code and update state
   void _handleQRCodeData(String rawData) {
     try {
       final Map<String, dynamic> jsonData = jsonDecode(rawData);
       setState(() {
         _description = jsonData['description'] ?? 'Unknown';
-        _expirationDate = jsonData['expiration_date'] ?? 'N/A';
+        _expirationDate =
+            jsonData['expiration_date'] ?? DateTime.now().toIso8601String();
         _category = jsonData['category'] ?? 'Uncategorized';
         _imageUrl = jsonData['image'] ?? '';
       });
     } catch (_) {
-      // If the QR code does not contain valid JSON
       setState(() {
-        _description = 'Invalid QR Code';
-        _expirationDate = '';
-        _category = '';
-        _imageUrl = '';
+        _barcodeValue = rawData;
       });
+    }
+  }
+
+  Future<void> _insertItemToDatabase() async {
+    try {
+      final dbHelper = Db.instance;
+      Uint8List? imageBytes;
+
+      if (_imageUrl.isNotEmpty) {
+        final imageData =
+            await NetworkAssetBundle(Uri.parse(_imageUrl)).load('');
+        imageBytes = imageData.buffer.asUint8List();
+      }
+      final newItem = Item(
+        userId: widget.userId,
+        itemName: _description,
+        expiryDate: DateTime.parse(_expirationDate),
+        category: _category,
+        image: imageBytes != null
+            ? base64Encode(imageBytes)
+            : null, // Convert image to base64 string
+      );
+      await dbHelper.insertItem(newItem);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Item added to inventory!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error saving item: $e')),
+      );
     }
   }
 
   void _clearQRCodeData() {
     setState(() {
+      _barcodeValue = '';
       _description = '';
       _expirationDate = '';
       _category = '';
@@ -101,7 +123,6 @@ class _ScanPageState extends State<ScanPage> {
     });
   }
 
-  /// Checks if the current platform supports the camera scanning feature
   bool get _isSupportedPlatform {
     return !(kIsWeb ||
         Platform.isWindows ||
@@ -109,58 +130,60 @@ class _ScanPageState extends State<ScanPage> {
         Platform.isLinux);
   }
 
-  /// Builds the scanner widget and the display for scanned data
   Widget _buildScannerView() {
     return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         if (_barcodeValue.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: _buildScannedDataDisplay(),
+            padding: const EdgeInsets.all(9.0),
+            child: Text('Scanned Data: $_barcodeValue'),
           ),
-        Expanded(
+        if (_description.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.all(9.0),
+            child: Text('Description: $_description'),
+          ),
+        Flexible(
+          fit: FlexFit.loose,
           child: MobileScanner(
             controller: _scannerController,
             onDetect: (capture) {
+              _scannerController.stop();
               final barcodes = capture.barcodes;
               final String? rawValue =
                   barcodes.isNotEmpty ? barcodes.first.rawValue : null;
 
               if (rawValue != null) {
                 setState(() => _barcodeValue = rawValue);
-                _scannerController.stop();
                 _handleQRCodeData(rawValue);
               }
             },
           ),
         ),
+        const SizedBox(height: 15),
         ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          ),
           onPressed: () => {_scannerController.start(), _clearQRCodeData()},
-          child: const Text('Rescan'),
+          child: const Text('Rescan',
+              style: TextStyle(fontSize: 16, color: Colors.white)),
         ),
-      ],
-    );
-  }
-
-  /// Widget to display the scanned product data
-  Widget _buildScannedDataDisplay() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (_description.isNotEmpty) Text('Description: $_description'),
-        if (_expirationDate.isNotEmpty)
-          Text('Expiration Date: $_expirationDate'),
-        if (_category.isNotEmpty) Text('Category: $_category'),
-        if (_imageUrl.isNotEmpty)
-          Image.network(
-            _imageUrl,
-            height: 100,
+        if (_barcodeValue.isNotEmpty)
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            ),
+            onPressed: _insertItemToDatabase,
+            child: const Text('Add to Inventory',
+                style: TextStyle(fontSize: 16, color: Colors.white)),
           ),
       ],
     );
   }
 
-  /// Widget to show when the platform is unsupported
   Widget _buildUnsupportedPlatformView() {
     return const Center(
       child: Text(
@@ -170,7 +193,6 @@ class _ScanPageState extends State<ScanPage> {
     );
   }
 
-  /// Builds the bottom navigation bar
   Widget _buildBottomNavigationBar() {
     return BottomNavigationBar(
       backgroundColor: Colors.green,

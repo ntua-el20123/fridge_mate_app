@@ -38,7 +38,8 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
     super.initState();
     if (widget.item != null) {
       _descriptionController.text = widget.item!.itemName;
-      _expirationController.text = widget.item!.expiryDate.toLocal().toString().split(' ')[0];
+      _expirationController.text =
+          widget.item!.expiryDate.toLocal().toString().split(' ')[0];
       _categoryController.text = widget.item!.category;
       if (widget.item!.image != null) {
         _imageFile = File(widget.item!.image!);
@@ -113,7 +114,7 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
         nextPage = HomePage(userId: widget.userId);
         break;
       case 1: // Scan
-        nextPage = const ScanPage();
+        nextPage = ScanPage(userId: widget.userId);
         break;
       case 2: // Recipes
         nextPage = RecipePage(userId: widget.userId);
@@ -177,7 +178,8 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
               controller: _descriptionController,
               decoration: InputDecoration(
                 labelText: 'Description',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
             const SizedBox(height: 20),
@@ -185,7 +187,8 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
               controller: _expirationController,
               decoration: InputDecoration(
                 labelText: 'Expiration Date',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
             const SizedBox(height: 20),
@@ -193,7 +196,8 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
               controller: _categoryController,
               decoration: InputDecoration(
                 labelText: 'Category',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
             const Spacer(),
@@ -201,11 +205,15 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
               onPressed: _onDone,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 30),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 30),
               ),
               child: Text(
                 isEditing ? 'Update' : 'Done',
-                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -222,8 +230,10 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.qr_code_scanner), label: 'Scan'),
-          BottomNavigationBarItem(icon: Icon(Icons.food_bank), label: 'Recipes'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.qr_code_scanner), label: 'Scan'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.food_bank), label: 'Recipes'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),
