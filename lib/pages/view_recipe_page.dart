@@ -7,11 +7,13 @@ import 'package:fridge_mate_app/pages/recipe_page.dart';
 class ViewRecipePage extends StatefulWidget {
   final Map<String, dynamic> recipe;
   final List<String> availableIngredients;
+  final int userId; // Add userId
 
   const ViewRecipePage({
     Key? key,
     required this.recipe,
     required this.availableIngredients,
+    required this.userId, // Include userId
   }) : super(key: key);
 
   @override
@@ -24,23 +26,23 @@ class _ViewRecipePageState extends State<ViewRecipePage> {
   late List<bool> _checkedState;
 
   /// Handles navigation based on the selected bottom navigation item
-  void _onNavItemTapped(int index) {
+void _onNavItemTapped(int index) {
     if (_selectedIndex == index) return;
 
     Widget nextPage;
 
     switch (index) {
-      case 0: // Home
-        nextPage = const HomePage(userId: 1); // Replace with the actual userId
+      case 0:
+        nextPage = HomePage(userId: widget.userId);
         break;
-      case 1: // Scan
+      case 1:
         nextPage = const ScanPage();
         break;
-      case 2: // Recipes
-        nextPage = const RecipePage(userId: 1); // Replace with the actual userId
+      case 2:
+        nextPage = RecipePage(userId: widget.userId);
         break;
-      case 3: // Recipes
-        nextPage = const ProfilePage(userId: 1); // Replace with the actual userId
+      case 3:
+        nextPage = ProfilePage(userId: widget.userId);
         break;
       default:
         return;

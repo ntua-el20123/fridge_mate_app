@@ -3,6 +3,7 @@ import 'package:fridge_mate_app/db.dart';
 import 'package:fridge_mate_app/pages/home_page.dart';
 import 'package:fridge_mate_app/pages/scan_page.dart';
 import 'package:fridge_mate_app/pages/recipe_page.dart';
+import 'package:fridge_mate_app/main.dart'; // Import the main script to access LoginScreen
 
 class ProfilePage extends StatefulWidget {
   final int userId;
@@ -16,14 +17,14 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   bool _isLoading = true;
   late User _user;
-  late List<Item> _expiredItems = []; // List of expired items
+  late List<Item> _expiredItems = [];
   int _selectedIndex = 3;
 
   @override
   void initState() {
     super.initState();
     _fetchUserData();
-    _fetchExpiredItems(); // Fetch expired items
+    _fetchExpiredItems();
   }
 
   /// Fetch user data
@@ -81,6 +82,15 @@ class _ProfilePageState extends State<ProfilePage> {
     setState(() {
       _selectedIndex = index;
     });
+  }
+
+  /// Logout handler
+  void _logout() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginScreen()), // Redirect to LoginScreen
+      (route) => false, // Remove all routes
+    );
   }
 
   @override
@@ -145,7 +155,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   Center(
                     child: ElevatedButton.icon(
                       onPressed: () {
-                        // Navigate to settings page
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                               content: Text('Settings Page Coming Soon!')),
@@ -172,7 +181,33 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 20),
 
+                  // Logout Button
+                  Center(
+                    child: ElevatedButton.icon(
+                      onPressed: _logout,
+                      icon: const Icon(
+                        Icons.logout,
+                        size: 28,
+                      ),
+                      label: const Text(
+                        'Logout',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 20),
 
                   // Notifications Section
@@ -199,7 +234,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                   MaterialPageRoute(
                                     builder: (context) => HomePage(
                                       userId: widget.userId,
-                                      sortType: 'expiration', // Pass sort option
+                                      sortType: 'expiration',
                                     ),
                                   ),
                                 );
@@ -209,7 +244,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         else
                           _buildNotificationCard(
                             'No expired items at the moment.',
-                            null, // No action for this message
+                            null,
                           ),
                       ],
                     ),

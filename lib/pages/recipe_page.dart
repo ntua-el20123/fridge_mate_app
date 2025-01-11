@@ -239,23 +239,23 @@ List<Map<String, dynamic>> _extractRecipes(String response) {
 }
 
   /// Bottom navigation onTap handler
-  void _onNavItemTapped(int index) {
+ void _onNavItemTapped(int index) {
     if (_selectedIndex == index) return;
 
     Widget nextPage;
 
     switch (index) {
-      case 0: // Home
-        nextPage = const HomePage(userId: 1); // Replace with the actual userId
+      case 0:
+        nextPage = HomePage(userId: widget.userId);
         break;
-      case 1: // Scan
+      case 1:
         nextPage = const ScanPage();
         break;
-      case 2: // Recipes
-        nextPage = const RecipePage(userId: 1); // Replace with the actual userId
+      case 2:
+        nextPage = RecipePage(userId: widget.userId);
         break;
-      case 3: // Recipes
-        nextPage = const ProfilePage(userId: 1); // Replace with the actual userId
+      case 3:
+        nextPage = ProfilePage(userId: widget.userId);
         break;
       default:
         return;
@@ -405,6 +405,7 @@ Future<void> _refreshPage() async {
                               builder: (context) => ViewRecipePage(
                                 recipe: recipe,
                                 availableIngredients: ingredientNames, // Pass as List<String>
+                                userId: widget.userId,
                               ),
                             ),
                           );

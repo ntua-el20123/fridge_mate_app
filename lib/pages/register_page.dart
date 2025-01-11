@@ -30,27 +30,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  Future<void> _onRegister() async {
-    // 1) Validate the form
-    if (!_formKey.currentState!.validate()) return;
+Future<void> _onRegister() async {
+  // 1) Validate the form
+  if (!_formKey.currentState!.validate()) return;
 
-    final username = _usernameController.text.trim();
-    final password = _passwordController.text;
-    final confirmPassword = _confirmPasswordController.text;
-    final email = _emailController.text.trim();
-    final dateOfBirth = _dobController.text.trim();
+  final username = _usernameController.text.trim();
+  final password = _passwordController.text;
+  final confirmPassword = _confirmPasswordController.text;
+  final email = _emailController.text.trim();
+  final dateOfBirth = _dobController.text.trim();
 
-    // 2) Additional logic: check if passwords match
-    if (password != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Passwords do not match.'),
-        ),
-      );
-      return;
-    }
+  // 2) Additional logic: check if passwords match
+  if (password != confirmPassword) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Passwords do not match.'),
+      ),
+    );
+    return;
+  }
 
-    // 3) Insert user into your DB (example code below)
+  try {
+    // 3) Insert user into your DB
     final db = Db.instance; // your DB singleton
     final user = User(
       username: username,
@@ -58,12 +59,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
       email: email,
       dateOfBirth: DateTime.parse(dateOfBirth),
     );
-    print('Inserting user: $user');
-    await db.insertUser(user);
 
-    // 4) Navigate back or onward
-    Navigator.pop(context);
+    final userId = await db.insertUser(user);
+
+    if (userId > 0) {
+      // 4) Show success and navigate
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Registration successful!')),
+      );
+      Navigator.pop(context); // Go back to the previous screen
+    } else {
+      // Handle failure
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to register user.')),
+      );
+    }
+  } catch (e) {
+    // Handle exceptions (e.g., invalid date format, DB errors)
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error: ${e.toString()}')),
+    );
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
