@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:fridge_mate_app/pages/profile_page.dart';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -39,28 +40,34 @@ class _ScanPageState extends State<ScanPage> {
 
   /// Bottom navigation bar item selection handler
   void _onNavItemTapped(int index) {
+    if (_selectedIndex == index) return;
+
+    Widget nextPage;
+
+    switch (index) {
+      case 0:
+        nextPage = HomePage(userId: 1);
+        break;
+      case 1:
+        nextPage = const ScanPage();
+        break;
+      case 2:
+        nextPage = RecipePage(userId: 1);
+        break;
+      case 3:
+        nextPage = ProfilePage(userId: 1);
+        break;
+      default:
+        return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => nextPage),
+    );
+
     setState(() {
       _selectedIndex = index;
-      switch (index) {
-        case 0:
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const HomePage(userId: 1)),
-          );
-          break;
-        case 1:
-          // Stay on the ScanPage
-          break;
-        case 2:
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const RecipePage(userId: 1)),
-          );
-          break;
-        case 3:
-          // TODO: Navigate to Profile Page if needed
-          break;
-      }
     });
   }
 
@@ -169,8 +176,8 @@ class _ScanPageState extends State<ScanPage> {
       backgroundColor: Colors.green,
       selectedItemColor: Colors.white,
       unselectedItemColor: Colors.black,
-      showSelectedLabels: false,
-      showUnselectedLabels: false,
+      showSelectedLabels: true,
+      showUnselectedLabels: true,
       currentIndex: _selectedIndex,
       onTap: _onNavItemTapped,
       type: BottomNavigationBarType.fixed,

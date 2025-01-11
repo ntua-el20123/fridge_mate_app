@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fridge_mate_app/pages/home_page.dart';
+import 'package:fridge_mate_app/pages/profile_page.dart';
 import 'package:fridge_mate_app/pages/scan_page.dart';
 import 'package:fridge_mate_app/pages/recipe_page.dart';
 
@@ -30,13 +31,16 @@ class _ViewRecipePageState extends State<ViewRecipePage> {
 
     switch (index) {
       case 0: // Home
-        nextPage = HomePage(userId: 1); // Replace with the actual userId
+        nextPage = const HomePage(userId: 1); // Replace with the actual userId
         break;
       case 1: // Scan
         nextPage = const ScanPage();
         break;
       case 2: // Recipes
-        nextPage = RecipePage(userId: 1); // Replace with the actual userId
+        nextPage = const RecipePage(userId: 1); // Replace with the actual userId
+        break;
+      case 3: // Recipes
+        nextPage = const ProfilePage(userId: 1); // Replace with the actual userId
         break;
       default:
         return;
@@ -77,9 +81,20 @@ class _ViewRecipePageState extends State<ViewRecipePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          "View Recipe",
-          style: TextStyle(color: Colors.white),
+        automaticallyImplyLeading: false,
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.kitchen),
+            const SizedBox(width: 10),
+            const Text(
+              'View Recipe',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ],
         ),
         backgroundColor: Colors.green,
       ),
@@ -122,36 +137,30 @@ class _ViewRecipePageState extends State<ViewRecipePage> {
             ...List.generate(
               _ingredientNames.length,
               (index) {
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Checkbox(
-                      value: _checkedState[index],
-                      onChanged: (newValue) {
-                        setState(() {
-                          _checkedState[index] = newValue ?? false;
-                        });
-                      },
-                      checkColor: Colors.white,
-                      activeColor: Colors.green,
+                return ListTile(
+                  contentPadding: EdgeInsets.zero, // Remove default padding
+                  leading: Checkbox(
+                    value: _checkedState[index],
+                    onChanged: (newValue) {
+                      setState(() {
+                        _checkedState[index] = newValue ?? false;
+                      });
+                    },
+                    checkColor: Colors.white,
+                    activeColor: Colors.green,
+                  ),
+                  title: Text(
+                    _ingredientNames[index],
+                    style: TextStyle(
+                      color: _checkedState[index] ? Colors.black : Colors.red,
+                      fontSize: 18,
                     ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 12.0),
-                        child: Text(
-                          _ingredientNames[index],
-                          style: TextStyle(
-                            color: _checkedState[index] ? Colors.black : Colors.red,
-                            fontSize: 18,
-                          ),
-                          softWrap: true,
-                        ),
-                      ),
-                    ),
-                  ],
+                    softWrap: true,
+                  ),
                 );
               },
             ),
+
             const SizedBox(height: 20),
 
             // Instructions
