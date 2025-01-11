@@ -182,11 +182,23 @@ Future<int> deleteFavoriteRecipe(int recipeId) async {
   // USER METHODS
   // ---------------------------------------------------------------------------
 
-  /// Inserts a [User] into the [users] table.
-  Future<int> insertUser(User user) async {
-    final db = await database;
-    return await db.insert('users', user.toMap());
+Future<int> insertUser(User user) async {
+  final db = await database;
+
+  // Check if the username already exists
+  final existingUsers = await db.query(
+    'users',
+    where: 'username = ?',
+    whereArgs: [user.username],
+  );
+
+  if (existingUsers.isNotEmpty) {
+    throw Exception('Username already exists');
   }
+
+  return await db.insert('users', user.toMap());
+}
+
 
   /// Retrieves all users from the [users] table.
   Future<List<User>> getUsers() async {

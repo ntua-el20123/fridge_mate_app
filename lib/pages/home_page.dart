@@ -4,6 +4,7 @@ import 'package:fridge_mate_app/db.dart';
 import 'package:fridge_mate_app/pages/modify_item_page.dart';
 import 'package:fridge_mate_app/pages/scan_page.dart';
 import 'package:fridge_mate_app/pages/recipe_page.dart';
+import 'package:fridge_mate_app/pages/profile_page.dart';
 
 /// SortButton: Shows a popup menu for different sorting options.
 class SortButton extends StatelessWidget {
@@ -62,82 +63,56 @@ class SortButton extends StatelessWidget {
   }
 }
 
-/// HomePage: Displays the user’s items and an “Expiring Soon” section.
 class HomePage extends StatefulWidget {
   final int userId;
+  final String sortType; // Added sortType parameter
 
-  const HomePage({super.key, required this.userId});
+  const HomePage({super.key, required this.userId, this.sortType = 'recently_added'});
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  /// Reference to the singleton database helper.
   final db = Db.instance;
-
-  /// All items owned by the user.
   List<Item> _items = [];
-
-  /// A single item that’s about to expire soon.
-  List<Item> _expiringSoon = [];
-
-  /// Currently selected bottom navigation index.
+  String _currentSortType = 'recently_added'; // Store the current sort type
   int _selectedIndex = 0;
 
   @override
   void initState() {
     super.initState();
+    _currentSortType = widget.sortType; // Initialize with the sort type from the constructor
     _fetchUserItems();
   }
 
-  /// Fetches the user’s items from the database and updates UI.
   Future<void> _fetchUserItems() async {
     final userItems = await db.getUserItems(widget.userId);
     setState(() {
-      _items = userItems;
-      _expiringSoon = _getExpiringSoonItems(userItems);
+      _items = _sortItems(userItems, _currentSortType);
     });
   }
 
-/// Returns a list of items expiring within the next 3 days.
-List<Item> _getExpiringSoonItems(List<Item> allItems) {
-  if (allItems.isEmpty) return [];
-  
-  final now = DateTime.now();
-  final threeDaysFromNow = now.add(const Duration(days: 3));
-  
-  // Filter items expiring within the next 3 days
-  return allItems
-      .where((item) => item.expiryDate.isBefore(threeDaysFromNow) && item.expiryDate.isAfter(now))
-      .toList();
-}
-
-  /// Called when a sort option is selected from SortButton.
-  void _onSortOptionSelected(String option) {
-    print('Sort option selected: $option'); // Debugging
-    setState(() {
-      switch (option) {
-        case 'alphabetical':
-          _items.sort((a, b) => a.itemName.compareTo(b.itemName));
-          break;
-        case 'expiration':
-          _items.sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
-          break;
-        case 'recently_added':
-          _items.sort((a, b) => b.id!.compareTo(a.id!)); // Newest first
-          break;
-        case 'category':
-          _items.sort((a, b) => a.category.compareTo(b.category));
-          break;
-      }
-      print(_items); // Debugging: Check the sorted order
-      _expiringSoon = _getExpiringSoonItems(_items); // Recompute if necessary
-    });
+  List<Item> _sortItems(List<Item> items, String sortType) {
+    switch (sortType) {
+      case 'alphabetical':
+        items.sort((a, b) => a.itemName.compareTo(b.itemName));
+        break;
+      case 'expiration':
+        items.sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
+        break;
+      case 'recently_added':
+        items.sort((a, b) => b.id!.compareTo(a.id!)); // Newest first
+        break;
+      case 'category':
+        items.sort((a, b) => a.category.compareTo(b.category));
+        break;
+      default:
+        break;
+    }
+    return items;
   }
 
-
-  /// Navigate to ModifyItemPage to add a new item, refresh on success.
   Future<void> _addItem() async {
     final result = await Navigator.push(
       context,
@@ -150,7 +125,6 @@ List<Item> _getExpiringSoonItems(List<Item> allItems) {
     }
   }
 
-  /// Navigate to ModifyItemPage to edit an existing item, refresh on success.
   Future<void> _editItem(Item item) async {
     final result = await Navigator.push(
       context,
@@ -163,279 +137,231 @@ List<Item> _getExpiringSoonItems(List<Item> allItems) {
     }
   }
 
-  /// Delete an item and refresh the list.
   Future<void> _deleteItem(int itemId) async {
     await db.deleteItem(itemId);
-    _fetchUserItems();
+    _fetchUserItems(); // Maintain current sort type
   }
 
-
-Widget _buildExpiringSoonSection() {
-  final expiringSoonItems = _getExpiringSoonItems(_items); // Fetch items expiring soon
-  if (expiringSoonItems.isEmpty) {
-    return const SizedBox(); // No items expiring soon
+  void _onSortOptionSelected(String option) {
+    setState(() {
+      _currentSortType = option; // Update the current sort type
+      _items = _sortItems(_items, _currentSortType); // Update the sorting immediately
+    });
   }
 
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      // Center the "Expires Soon" text
-      const Center(
-        child: Text(
-          'Expires Soon',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
+  List<Item> _getExpiringSoonItems(List<Item> allItems) {
+    if (allItems.isEmpty) return [];
+    final now = DateTime.now();
+    final threeDaysFromNow = now.add(const Duration(days: 3));
+    return allItems
+        .where((item) => item.expiryDate.isBefore(threeDaysFromNow) && item.expiryDate.isAfter(now))
+        .toList();
+  }
+
+  Widget _buildExpiringSoonSection() {
+    final expiringSoonItems = _getExpiringSoonItems(_items);
+    if (expiringSoonItems.isEmpty) {
+      return const SizedBox();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Center(
+          child: Text(
+            'Expires Soon',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
           ),
         ),
-      ),
-      const SizedBox(height: 10),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 100,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: expiringSoonItems.map((item) {
+                return Container(
+                  width: 200,
+                  margin: const EdgeInsets.only(right: 8.0),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.black),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.all(8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      SizedBox(
+                        width: 60,
+                        height: 60,
+                        child: item.image != null && item.image!.isNotEmpty
+                            ? Image.file(
+                                File(item.image!),
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Icon(Icons.error);
+                                },
+                              )
+                            : Container(
+                                color: Colors.grey[300],
+                                child: const Icon(Icons.image_not_supported),
+                              ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => _editItem(item),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.itemName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 5),
+                              Text(
+                                'Ex. ${item.expiryDate.toString().split(' ').first}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => _deleteItem(item.id!),
+                        icon: const Icon(Icons.delete, color: Colors.black),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
-      // Horizontally scrollable section
-      SizedBox(
-        height: 100, // Set a fixed height for the scrollable area
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: expiringSoonItems.map((item) {
-              return Container(
-                width: 200, // Ensure consistent width for each item
-                margin: const EdgeInsets.only(right: 8.0),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.black),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                padding: const EdgeInsets.all(8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Display item image
-                    SizedBox(
-                      width: 60,
-                      height: 60,
-                      child: item.image != null && item.image!.isNotEmpty
-                          ? Image.file(
-                              File(item.image!), // Load from file
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Icon(Icons.error);
-                              },
-                            )
-                          : Container(
-                              color: Colors.grey[300],
-                              child: const Icon(Icons.image_not_supported),
-                            ),
-                    ),
-                    const SizedBox(width: 10),
-
-                    // Item details
-                    Expanded(
-                      child: InkWell(
-                        onTap: () => _editItem(item),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildInventorySection() {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Center(
+            child: Text(
+              'Your Inventory',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              ElevatedButton(
+                onPressed: _addItem,
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                child: const Text('+ Add', style: TextStyle(color: Colors.white)),
+              ),
+              SortButton(onSortOptionSelected: _onSortOptionSelected),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Expanded(
+            child: _items.isEmpty
+                ? const Center(child: Text('No items yet.'))
+                : ListView.builder(
+                    itemCount: _items.length,
+                    itemBuilder: (context, index) {
+                      final item = _items[index];
+                      return Container(
+                        margin: const EdgeInsets.symmetric(vertical: 5),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.all(8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              item.itemName,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                              overflow: TextOverflow.ellipsis, // Prevent overflow
+                            SizedBox(
+                              width: 60,
+                              height: 60,
+                              child: item.image != null && item.image!.isNotEmpty
+                                  ? Image.file(
+                                      File(item.image!),
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return const Icon(Icons.error);
+                                      },
+                                    )
+                                  : Container(
+                                      color: Colors.grey[300],
+                                      child: const Icon(Icons.image_not_supported),
+                                    ),
                             ),
-                            const SizedBox(height: 5),
-                            Text(
-                              'Ex. ${item.expiryDate.toString().split(' ').first}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: InkWell(
+                                onTap: () => _editItem(item),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(item.itemName),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      'Ex. ${item.expiryDate.toString().split(' ').first}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: item.expiryDate.isBefore(DateTime.now())
+                                            ? Colors.red // Highlight in red if expired
+                                            : Colors.grey, // Default color for non-expired items
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
+                            ),
+
+                            IconButton(
+                              onPressed: () => _deleteItem(item.id!),
+                              icon: const Icon(Icons.delete, color: Colors.black),
                             ),
                           ],
                         ),
-                      ),
-                    ),
-
-                    // Delete button
-                    IconButton(
-                      onPressed: () => _deleteItem(item.id!),
-                      icon: const Icon(Icons.delete, color: Colors.black),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
+                      );
+                    },
+                  ),
           ),
-        ),
+        ],
       ),
-    ],
-  );
-}
-
-
-
-
- Widget _buildInventorySection() {
-  return Expanded(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Center the "Your Inventory" text
-        const Center(
-          child: Text(
-            'Your Inventory',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-
-        // Add & Sort buttons
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            ElevatedButton(
-              onPressed: _addItem,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-              ),
-              child: const Text(
-                '+ Add',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-            SortButton(onSortOptionSelected: _onSortOptionSelected),
-          ],
-        ),
-        const SizedBox(height: 10),
-
-        // Items list
-        Expanded(
-          child: _items.isEmpty
-              ? const Center(child: Text('No items yet.'))
-              : ListView.builder(
-                  itemCount: _items.length,
-                  itemBuilder: (context, index) {
-                    final item = _items[index];
-                    return Container(
-                      margin: const EdgeInsets.symmetric(vertical: 5),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.all(8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          // Display item image
-                          SizedBox(
-                            width: 60,
-                            height: 60,
-                            child: item.image != null && item.image!.isNotEmpty
-                                ? Image.file(
-                                    File(item.image!), // Load from file
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return const Icon(Icons.error);
-                                    },
-                                  )
-                                : Container(
-                                    color: Colors.grey[300],
-                                    child: const Icon(Icons.image_not_supported),
-                                  ),
-                          ),
-                          const SizedBox(width: 10),
-
-                          // Item details
-                          Expanded(
-                            child: InkWell(
-                              onTap: () => _editItem(item),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(item.itemName),
-                                  const SizedBox(height: 5),
-                                  Text(
-                                    'Ex. ${item.expiryDate.toString().split(' ').first}',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          // Delete button
-                          IconButton(
-                            onPressed: () => _deleteItem(item.id!),
-                            icon: const Icon(Icons.delete, color: Colors.black),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-        ),
-      ],
-    ),
-  );
-}
-
-
-
-
-// Bottom navigation onTap handler
-void _onNavItemTapped(int index) {
-  if (_selectedIndex == index) return; // Prevents redundant navigation
-
-  setState(() {
-    _selectedIndex = index;
-  });
-
-  // Navigate to the selected page
-  Widget nextPage;
-
-  switch (index) {
-    case 0: // Home Page
-      nextPage = HomePage(userId: widget.userId); // Pass userId to HomePage
-      break;
-    case 1: // Scan Page
-      nextPage = const ScanPage();
-      break;
-    case 2: // Recipe Page
-      nextPage = RecipePage(userId: widget.userId); // Pass userId to RecipePage
-      break;
-    //case 3: // Profile Page
-      // = const ProfilePage(); // ProfilePage should be implemented
-      //break;
-    default:
-      return;
+    );
   }
-
-  // Navigate using pushReplacement
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(builder: (_) => nextPage),
-  );
-}
-
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        // Remove default back arrow
         automaticallyImplyLeading: false,
-        title: const Text(
-          'FridgeMate',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(Icons.kitchen),
+            SizedBox(width: 10),
+            Text(
+              'FridgeMate',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ],
         ),
         backgroundColor: Colors.green,
       ),
@@ -456,7 +382,36 @@ void _onNavItemTapped(int index) {
         showSelectedLabels: true,
         showUnselectedLabels: true,
         currentIndex: _selectedIndex,
-        onTap: _onNavItemTapped,
+        onTap: (index) {
+          if (_selectedIndex == index) return;
+
+          Widget nextPage;
+          switch (index) {
+            case 0:
+              nextPage = HomePage(userId: widget.userId, sortType: _currentSortType);
+              break;
+            case 1:
+              nextPage = const ScanPage();
+              break;
+            case 2:
+              nextPage = RecipePage(userId: widget.userId);
+              break;
+            case 3:
+              nextPage = ProfilePage(userId: widget.userId);
+              break;
+            default:
+              return;
+          }
+
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => nextPage),
+          );
+
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(

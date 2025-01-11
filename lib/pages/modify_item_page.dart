@@ -3,6 +3,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:fridge_mate_app/db.dart';
+import 'package:fridge_mate_app/pages/home_page.dart';
+import 'package:fridge_mate_app/pages/scan_page.dart';
+import 'package:fridge_mate_app/pages/recipe_page.dart';
+import 'package:fridge_mate_app/pages/profile_page.dart';
 
 class ModifyItemPage extends StatefulWidget {
   final int userId;
@@ -26,6 +30,8 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
 
   File? _imageFile;
   final ImagePicker _picker = ImagePicker();
+
+  int _selectedIndex = 0;
 
   @override
   void initState() {
@@ -96,6 +102,39 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
     Navigator.pop(context, true);
   }
 
+  /// Handles bottom navigation
+  void _onNavItemTapped(int index) {
+    if (_selectedIndex == index) return;
+
+    Widget nextPage;
+
+    switch (index) {
+      case 0: // Home
+        nextPage = HomePage(userId: widget.userId);
+        break;
+      case 1: // Scan
+        nextPage = const ScanPage();
+        break;
+      case 2: // Recipes
+        nextPage = RecipePage(userId: widget.userId);
+        break;
+      case 3: // Profile
+        nextPage = ProfilePage(userId: widget.userId);
+        break;
+      default:
+        return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => nextPage),
+    );
+
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.item != null;
@@ -134,7 +173,6 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
               ),
             ),
             const SizedBox(height: 20),
-
             TextField(
               controller: _descriptionController,
               decoration: InputDecoration(
@@ -143,7 +181,6 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
               ),
             ),
             const SizedBox(height: 20),
-
             TextField(
               controller: _expirationController,
               decoration: InputDecoration(
@@ -152,7 +189,6 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
               ),
             ),
             const SizedBox(height: 20),
-
             TextField(
               controller: _categoryController,
               decoration: InputDecoration(
@@ -160,9 +196,7 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
-
             const Spacer(),
-
             ElevatedButton(
               onPressed: _onDone,
               style: ElevatedButton.styleFrom(
@@ -181,8 +215,10 @@ class _ModifyItemPageState extends State<ModifyItemPage> {
         backgroundColor: Colors.green,
         selectedItemColor: Colors.white,
         unselectedItemColor: Colors.black,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
+        showSelectedLabels: true,
+        showUnselectedLabels: true,
+        currentIndex: _selectedIndex,
+        onTap: _onNavItemTapped,
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),

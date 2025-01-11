@@ -1,10 +1,10 @@
-import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:fridge_mate_app/pages/home_page.dart';
 import 'package:fridge_mate_app/pages/scan_page.dart';
 import 'package:fridge_mate_app/db.dart';
-import 'dart:convert';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:fridge_mate_app/pages/profile_page.dart';
 import 'view_recipe_page.dart';
 
 
@@ -41,25 +41,11 @@ class _RecipePageState extends State<RecipePage> {
     final dbHelper = Db.instance;
     final favorites = await dbHelper.getFavoriteRecipes(widget.userId);
 
-    setState(() {
-      _favoriteRecipes = favorites;
-    });
+    if (!mounted) return; // Check if the widget is still in the tree
+  setState(() {
+    _favoriteRecipes = favorites;
+  });
   }
-
-  /// Adds a recipe to favorites
-  Future<void> _addToFavorites(Map<String, dynamic> recipe) async {
-    final dbHelper = Db.instance;
-    await dbHelper.insertFavoriteRecipe(
-      widget.userId,
-      recipe['name'],
-      recipe['ingredients'],
-      recipe['instructions'],
-    );
-
-    // Refresh the favorite recipes list
-    _fetchFavoriteRecipes();
-  }
-
   /// Fetches the user's items from the database
   Future<List<Map<String, String>>> fetchUserItemsWithExpiry(int userId) async {
     final dbHelper = Db.instance;
@@ -93,7 +79,7 @@ class _RecipePageState extends State<RecipePage> {
             .map((item) => "${item['name']} (expires: ${item['expiry']})")
             .join(", ") +
         ", suggest 6 recipes. One recipe, does not need to use all ingredients, and also recipes should not be limited to the ingredients available. Recipe names should not include comments or notes and should not be numbered"+
-        "The Instruction list should also be numbered in a format similat to the ingredients. Always provide the recipes in the following forat: **Name**: this_recipe_name, **Ingredient List**:....., **Instruction List**:....";
+        "The Instruction list should also be numbered in a format similar to the ingredients. Always provide the recipes in the following forat: **Name**: this_recipe_name, **Ingredient List**:....., **Instruction List**:....";
   // Create the content input for the model
   final content = [Content.multi([TextPart(prompt)])];
 
@@ -120,9 +106,10 @@ class _RecipePageState extends State<RecipePage> {
         throw Exception('AI model returned an empty response.');
       }
     } catch (e) {
-      setState(() {
-        _isLoading = false; // Hide loading indicator
-      });
+    if (!mounted) return; // Check if the widget is still in the tree
+    setState(() {
+      _isLoading = false; // Hide loading indicator
+    });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error fetching recipes: ${e.toString()}")),
       );
@@ -252,12 +239,8 @@ List<Map<String, dynamic>> _extractRecipes(String response) {
 }
 
   /// Bottom navigation onTap handler
-  void _onNavItemTapped(int index) {
-    if (_selectedIndex == index) return; // Prevents redundant navigation
-
-    setState(() {
-      _selectedIndex = index;
-    });
+ void _onNavItemTapped(int index) {
+    if (_selectedIndex == index) return;
 
     Widget nextPage;
 
@@ -271,6 +254,9 @@ List<Map<String, dynamic>> _extractRecipes(String response) {
       case 2:
         nextPage = RecipePage(userId: widget.userId);
         break;
+      case 3:
+        nextPage = ProfilePage(userId: widget.userId);
+        break;
       default:
         return;
     }
@@ -279,25 +265,33 @@ List<Map<String, dynamic>> _extractRecipes(String response) {
       context,
       MaterialPageRoute(builder: (_) => nextPage),
     );
+
+    setState(() {
+      _selectedIndex = index;
+    });
   }
 
 @override
 Widget build(BuildContext context) {
   return Scaffold(
-    appBar: AppBar(
-      automaticallyImplyLeading: false,
-      title: const Center(
-        child: Text(
-          "Recipe Suggestions",
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+appBar: AppBar(
+        automaticallyImplyLeading: false,
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.kitchen),
+            const SizedBox(width: 10),
+            const Text(
+              'Recipes',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ],
         ),
+        backgroundColor: Colors.green,
       ),
-      backgroundColor: Colors.green,
-    ),
     body: RefreshIndicator(
       onRefresh: _refreshPage, // Pull-to-refresh action
       child: ListView(
@@ -411,6 +405,7 @@ Future<void> _refreshPage() async {
                               builder: (context) => ViewRecipePage(
                                 recipe: recipe,
                                 availableIngredients: ingredientNames, // Pass as List<String>
+                                userId: widget.userId,
                               ),
                             ),
                           );
