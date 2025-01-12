@@ -170,18 +170,6 @@ class _ScanPageState extends State<ScanPage> {
             },
           ),
         ),
-        const SizedBox(height: 15),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          ),
-          onPressed: () {
-            _scannerController.start();
-            _clearQRCodeData();
-          },
-          child: const Text('Rescan',
-              style: TextStyle(fontSize: 16, color: Colors.white)),
-        ),
       ],
     );
   }
