@@ -85,24 +85,27 @@ class _ViewRecipePageState extends State<ViewRecipePage> {
     final recipe = widget.recipe;
 
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.kitchen),
-            const SizedBox(width: 10),
-            const Text(
-              'View Recipe',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ],
+appBar: AppBar(
+  automaticallyImplyLeading: true, // Keeps the back button or leading widget
+  backgroundColor: Colors.green,
+  centerTitle: true, // Centers the title text
+  title: Row(
+    mainAxisSize: MainAxisSize.min, // Ensures the title does not take unnecessary space
+    children: [
+      const Icon(Icons.kitchen),
+      const SizedBox(width: 10),
+      const Text(
+        'View Recipe',
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
         ),
-        backgroundColor: Colors.green,
       ),
+    ],
+  ),
+),
+
+
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: ListView(

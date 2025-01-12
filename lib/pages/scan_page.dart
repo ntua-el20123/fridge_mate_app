@@ -170,18 +170,6 @@ class _ScanPageState extends State<ScanPage> {
             },
           ),
         ),
-        const SizedBox(height: 15),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          ),
-          onPressed: () {
-            _scannerController.start();
-            _clearQRCodeData();
-          },
-          child: const Text('Rescan',
-              style: TextStyle(fontSize: 16, color: Colors.white)),
-        ),
       ],
     );
   }
@@ -219,12 +207,22 @@ class _ScanPageState extends State<ScanPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'FridgeMate',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        automaticallyImplyLeading: false,
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(Icons.kitchen),
+            SizedBox(width: 10),
+            Text(
+              'Scan Code',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ],
         ),
         backgroundColor: Colors.green,
-        automaticallyImplyLeading: false,
       ),
       body: _isSupportedPlatform
           ? _buildScannerView()
