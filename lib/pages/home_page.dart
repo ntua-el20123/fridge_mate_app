@@ -379,7 +379,7 @@ class _HomePageState extends State<HomePage> {
             Icon(Icons.kitchen),
             SizedBox(width: 10),
             Text(
-              'FridgeMate',
+              'Inventory',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
